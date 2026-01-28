@@ -1,0 +1,55 @@
+{
+  "op_base": "/home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/swi_glu",
+  "category": "activation",
+  "opname": "swi_glu",
+  "decisions": [
+    {
+      "file": "/home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/swi_glu/op_host/swi_glu_def.cpp",
+      "label": "decl",
+      "confidence": 100,
+      "explanation": "The file contains only op registration and configuration: it defines an OpDef class with input/output specifications, attributes, and AICore configs, but has no function bodies performing tiling math or loops.",
+      "evidence": [
+        "L15-L55: SwiGlu class constructor defines op inputs, outputs, attributes, and AICore configurations, no tiling logic",
+        "L56: OP_ADD macro registers the op, no implementation",
+        "Entire file: No loops, arithmetic, tile size calculations, or UB/GM sizing functions"
+      ]
+    },
+    {
+      "file": "/home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/swi_glu/op_host/swi_glu_tiling.cpp",
+      "label": "real",
+      "confidence": 99,
+      "explanation": "File contains extensive tiling logic: multiple function bodies with loops, arithmetic, and tile size calculations (e.g., CalcOptBaseShape, CalcUbMaxTileLen, SaveOptBaseShape) that compute optimal tile shapes, UB usage, and core distribution.",
+      "evidence": [
+        "L30-L35: AlignUp, AlignDown, DivCeil utility functions for tiling alignment",
+        "L120-L140: SetTotalShape computes rowLen and colLen from input shape",
+        "L180-L200: CalcUbMaxTileLen computes max tile length per UB using AlignDown",
+        "L210-L230: SaveOptBaseShape calculates totalTileNum, baseSize, and selects optimal shape based on core count and tile counts",
+        "L280-L320: CalcOptBaseShape contains a while-loop that iterates over possible baseColLen values, evaluating and saving optimal tile shapes",
+        "L340-L380: CalcTiling orchestrates tiling with double\u2011buffer logic, calls CalcOptTiling, and sets tilingData fields"
+      ],
+      "exported_to": "/home/l00936201/AscendC-copliot/tools/detector/runs/activation/swi_glu/20260128003918/selected_initial_program/swi_glu_tiling/swi_glu_tiling.cpp"
+    },
+    {
+      "file": "/home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/swi_glu/op_host/swi_glu_tiling.h",
+      "label": "decl",
+      "confidence": 100,
+      "explanation": "This is a header file containing only constant definitions, a TILING_DATA_DEF macro for a struct, and registration macros. There are no function bodies, loops, or tiling arithmetic.",
+      "evidence": [
+        "L20-L38: Constant definitions for static and dynamic mode identifiers",
+        "L40-L55: BEGIN_TILING_DATA_DEF macro defining fields of SwiGluTilingData struct",
+        "L57-L59: REGISTER_TILING_DATA_CLASS macros for registration only"
+      ]
+    },
+    {
+      "file": "/home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/swi_glu/op_host/swi_glu_infershape.cpp",
+      "label": "decl",
+      "confidence": 90,
+      "explanation": "File contains only shape inference and data type inference functions, plus a registration macro. There are no loops, tile size calculations, UB/GM sizing, or tiling-specific arithmetic.",
+      "evidence": [
+        "L20-L55: InferShapeForSwiGlu validates input shape and adjusts output shape dimension, but no tiling loops or tile math",
+        "L57-L61: InferDataTypeForSwiGlu copies data type, no tiling logic",
+        "L63: IMPL_OP_INFERSHAPE registration macro, no tiling implementation"
+      ]
+    }
+  ]
+}

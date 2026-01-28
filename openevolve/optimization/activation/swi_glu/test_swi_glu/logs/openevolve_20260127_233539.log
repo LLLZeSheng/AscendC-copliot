@@ -1,0 +1,6 @@
+2026-01-27 23:35:39,591 - openevolve.controller - INFO - Logging to /home/l00936201/AscendC-copliot/openevolve/optimization/activation/swi_glu/test_swi_glu/logs/openevolve_20260127_233539.log
+2026-01-27 23:35:39,591 - openevolve.controller - INFO - Set random seed to 42 for reproducibility
+2026-01-27 23:35:39,593 - openevolve.llm.ensemble - INFO - Initialized LLM ensemble with models: 
+2026-01-27 23:35:39,593 - openevolve.prompt.sampler - INFO - Initialized prompt sampler
+2026-01-27 23:35:39,594 - openevolve.prompt.sampler - INFO - Set custom templates: system=evaluator_system_message, user=None
+2026-01-27 23:35:39,594 - openevolve.database - INFO - Initialized program database with 0 programs

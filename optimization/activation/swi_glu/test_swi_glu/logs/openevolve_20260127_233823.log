@@ -1,0 +1,109 @@
+2026-01-27 23:38:23,710 - openevolve.controller - INFO - Logging to /home/l00936201/AscendC-copliot/optimization/activation/swi_glu/test_swi_glu/logs/openevolve_20260127_233823.log
+2026-01-27 23:38:23,711 - openevolve.controller - INFO - Set random seed to 42 for reproducibility
+2026-01-27 23:38:23,748 - openevolve.llm.openai - INFO - Initialized OpenAI LLM with model: deepseek-v3
+2026-01-27 23:38:23,757 - openevolve.llm.ensemble - INFO - Initialized LLM ensemble with models: deepseek-v3 (weight: 0.80), deepseek-v3 (weight: 0.20)
+2026-01-27 23:38:23,774 - openevolve.llm.ensemble - INFO - Initialized LLM ensemble with models: deepseek-v3 (weight: 0.80), deepseek-v3 (weight: 0.20)
+2026-01-27 23:38:23,775 - openevolve.prompt.sampler - INFO - Initialized prompt sampler
+2026-01-27 23:38:23,775 - openevolve.prompt.sampler - INFO - Set custom templates: system=evaluator_system_message, user=None
+2026-01-27 23:38:23,776 - openevolve.database - INFO - Initialized program database with 0 programs
+2026-01-27 23:38:23,777 - openevolve.evaluator - INFO - Successfully loaded evaluation function from /home/l00936201/AscendC-copliot/optimization/eval_test.py
+2026-01-27 23:38:23,777 - openevolve.evaluator - INFO - Initialized evaluator with /home/l00936201/AscendC-copliot/optimization/eval_test.py
+2026-01-27 23:38:23,777 - openevolve.controller - INFO - Initialized OpenEvolve with /home/l00936201/AscendC-copliot/operators/swi_glu/intitial.cpp
+2026-01-27 23:38:23,777 - openevolve.controller - INFO - Adding initial program to database
+2026-01-27 23:38:23,781 - eval_operator - INFO - ================================================================================
+2026-01-27 23:38:23,782 - eval_operator - INFO - BEGIN eval: category=activation op_name=swi_glu
+2026-01-27 23:38:23,782 - eval_operator - INFO - BASE_OPS_NN_ROOT: /home/l00936201/AscendC-copliot/ops-x/ops-nn
+2026-01-27 23:38:23,782 - eval_operator - INFO - TMP_PARENT:       /home/l00936201/AscendC-copliot/tmp
+2026-01-27 23:38:23,782 - eval_operator - INFO - MSPROF_BIN:       /usr/local/Ascend/ascend-toolkit/latest/tools/profiler/bin/msprof
+2026-01-27 23:38:23,782 - eval_operator - INFO - python_code_path: /home/l00936201/AscendC-copliot/tools/utGenerator/test_swi_glu.py
+2026-01-27 23:38:23,782 - eval_operator - INFO - kernel_files: []
+2026-01-27 23:38:23,782 - eval_operator - INFO - host_files:   ['swi_glu_tiling.cpp']
+2026-01-27 23:38:23,782 - eval_operator - INFO - Locating operator dir: /home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/swi_glu
+2026-01-27 23:38:23,782 - eval_operator - INFO - Verifying requested replacement files exist in BASE tree...
+2026-01-27 23:38:23,782 - eval_operator - INFO - Host dir:   /home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/swi_glu/op_host
+2026-01-27 23:38:23,782 - eval_operator - INFO - Verify host file exists (recursive): swi_glu_tiling.cpp -> /home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/swi_glu/op_host/swi_glu_tiling.cpp
+2026-01-27 23:38:23,783 - eval_operator - INFO - Copy base tree:
+  FROM: /home/l00936201/AscendC-copliot/ops-x/ops-nn
+  TO:   /home/l00936201/AscendC-copliot/tmp/ops_nn_a81d837f07634f96b81b37ff56b6a462/ops-nn-master
+2026-01-27 23:38:25,816 - eval_operator - INFO - TMP ops root created: /home/l00936201/AscendC-copliot/tmp/ops_nn_a81d837f07634f96b81b37ff56b6a462/ops-nn-master
+2026-01-27 23:38:25,817 - eval_operator - INFO - Replacing files in TMP operator dir: /home/l00936201/AscendC-copliot/tmp/ops_nn_a81d837f07634f96b81b37ff56b6a462/ops-nn-master/activation/swi_glu
+2026-01-27 23:38:25,818 - eval_operator - INFO - Replace host file: swi_glu_tiling.cpp -> /home/l00936201/AscendC-copliot/tmp/ops_nn_a81d837f07634f96b81b37ff56b6a462/ops-nn-master/activation/swi_glu/op_host/swi_glu_tiling.cpp (len=25675 chars)
+2026-01-27 23:38:25,818 - eval_operator - INFO - Staging python code into TMP test_duration:
+  src: /home/l00936201/AscendC-copliot/tools/utGenerator/test_swi_glu.py
+2026-01-27 23:38:25,819 - eval_operator - INFO -   dst: /home/l00936201/AscendC-copliot/tmp/ops_nn_a81d837f07634f96b81b37ff56b6a462/ops-nn-master/test_duration/test_swi_glu.py
+2026-01-27 23:38:25,819 - eval_operator - INFO - Cleaning build directories in TMP root: /home/l00936201/AscendC-copliot/tmp/ops_nn_a81d837f07634f96b81b37ff56b6a462/ops-nn-master
+2026-01-27 23:38:25,820 - eval_operator - INFO -   No build* directories found to remove.
+2026-01-27 23:38:25,820 - eval_operator - INFO - Building operator 'swi_glu' ...
+2026-01-27 23:38:25,820 - eval_operator - INFO - Run cmd:
+  cwd: /home/l00936201/AscendC-copliot/tmp/ops_nn_a81d837f07634f96b81b37ff56b6a462/ops-nn-master
+  cmd: bash build.sh --pkg --soc=ascend910b --ops=swi_glu --vendor_name=swi_glu
+2026-01-27 23:40:14,594 - eval_operator - INFO - Command return code: -2
+2026-01-27 23:40:14,594 - eval_operator - INFO - --- STDOUT (head) ---
+[2026-01-27 23:38:25] COMPUTE_UNIT: ascend910b;
+[2026-01-27 23:38:25] CMAKE_ARGS: -DBUILD_PATH=/home/l00936201/AscendC-copliot/tmp/ops_nn_a81d837f07634f96b81b37ff56b6a462/ops-nn-master/build -DENABLE_VALGRIND=FALSE -DCMAKE_BUILD_TYPE=Release -DENABLE_MSSANITIZER=FALSE -DENABLE_OOM=FALSE -DENABLE_COVERAGE=FALSE -DENABLE_TEST=FALSE -DENABLE_UT_EXEC=TRUE -DENABLE_CUSTOM=TRUE -DENABLE_STATIC=FALSE -DASCEND_OP_NAME=swi_glu -DVENDOR_NAME=swi_glu -DENABLE_BINARY=TRUE -DENABLE_PACKAGE=TRUE -DENABLE_EXPERIMENTAL=FALSE -DNO_FORCE=FALSE -DBUILD_MODE= -DOP_HOST_UT=FALSE -DOP_API_UT=FALSE -DOP_KERNEL_UT=FALSE -DOP_KERNEL_AICPU_UT=FALSE -DUT_TEST_ALL=FALSE -DASCEND_COMPUTE_UNIT=ascend910b; -DCANN_3RD_LIB_PATH=/home/l00936201/AscendC-copliot/tmp/ops_nn_a81d837f07634f96b81b37ff56b6a462/ops-nn-master/build/third_party
+[2026-01-27 23:38:26] -- The C compiler identification is GNU 10.3.1
+[2026-01-27 23:38:26] -- The CXX compiler identification is GNU 10.3.1
+[2026-01-27 23:38:26] -- Detecting C compiler ABI info
+[2026-01-27 23:38:26] -- Detecting C compiler ABI info - done
+[2026-01-27 23:38:26] -- Check for working C compiler: /usr/bin/cc - skipped
+[2026-01-27 23:38:26] -- Detecting C compile features
+[2026-01-27 23:38:26] -- Detecting C compile features - done
+[2026-01-27 23:38:26] -- Detecting CXX compiler ABI info
+[2026-01-27 23:38:26] -- Detecting CXX compiler ABI info - done
+[2026-01-27 23:38:26] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[2026-01-27 23:38:26] -- Detecting CXX compile features
+[2026-01-27 23:38:26] -- Detecting CXX compile features - done
+[2026-01-27 23:38:26] -- compile project with library
+[2026-01-27 23:38:26] -- Search libs under install path /usr/local/Ascend/cann-8.5.0-beta.1
+[2026-01-27 23:38:26] -- CMAKE_MODULE_PATH            :/home/l00936201/AscendC-copliot/tmp/ops_nn_a81d837f07634f96b81b37ff56b6a462/ops-nn-master/cmake/modules
+[2026-01-27 23:38:26] -- compile option:  -O2 -Wall -Wextra -Wshadow -Wformat=2 -fno-common -fPIC -Wformat-signed
+2026-01-27 23:40:14,594 - eval_operator - INFO - --- STDERR (head) ---
+not use cache, download the json code
+LIBASAN_PATH = 
+LIBASAN_PATH = 
+LIBASAN_PATH = 
+not use cache, download the json code
+LIBASAN_PATH = 
+LIBASAN_PATH = 
+LIBASAN_PATH = 
+not use cache, download the json code
+LIBASAN_PATH = 
+INFO target name: cust_opapi
+INFO target name: cust_proto
+INFO target name: cust_opmaster
+CMake Warning:
+  Manually-specified variables were not used by the project:
+
+    BUILD_PATH
+
+
+not use cache, download the json code
+LIBASAN_PATH = 
+not use cache, download the json code
+LIBASAN_PATH = 
+INFO target name: cust_opapi
+INFO target name: cust_proto
+INFO target name: cust_opmaster
+not use cache, download the json code
+LIBASAN_PATH = 
+INFO target name: cust_opapi
+INFO target name: cust_proto
+INFO target name: cust_opmaster
+not use cache, download the json code
+LIBASAN_PATH = 
+INFO target name: cust_opapi
+INFO target name: cust_proto
+INFO target name: cust_opmaster
+grep: /usr/local/Ascend/cann-8.5.0-beta.1/toolkit/version.info: No such file or directory
+CMake Warning:
+  Manually-specified variables were not used by the project:
+
+    CMAKE_CXX_LDFLAGS
+
+
+/home/l00936201/AscendC-copliot/tmp/ops_nn_a81d837f07634f96b81b37ff56b6a462/ops-nn-master/third_party/ascend_protobuf/src/google/protobuf/message_lite.cc: In member function ‘int ascend_private::protobuf::MessageLite::GetCachedSize() const’:
+/home/l00936201/AscendC-copliot/tmp/ops_nn_a81d837f07634f96b81b37ff56b6a462/ops-nn-master/third_party/ascend_protobuf/src/google/protobuf/message_lite.cc:69:71: warning: ‘int ascend_private::protobuf::MessageLite::ByteSize() const’ is deprecated: Please use ByteSizeLong() instead [-Wdeprecated-declarations]
+   69 |   if (PROTOBUF_PREDICT_FALSE(cached_size == nullptr)) return ByteSize();
+      |                                                                       ^
+In file included from /home/l00936201/AscendC-copliot/tmp/ops_nn_a81d837f07634f96b81b37ff56b6a462/ops-nn-master/third_party/ascend_protobuf/src/google/protobuf/message_lite.cc:13:
+/home/l00936201/Ascen

@@ -23,7 +23,7 @@ from pathlib import Path
 from openevolve import OpenEvolve  # Make sure this import matches your environment
 
 
-OPENEVOLVE_ROOT = "/home/k00940873/openevolve/optimization"
+OPENEVOLVE_ROOT = "/home/l00936201/AscendC-copliot/optimization"
 
 
 def run_openevolve(

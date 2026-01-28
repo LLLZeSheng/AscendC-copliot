@@ -38,10 +38,10 @@ logging.basicConfig(
 logger = logging.getLogger("eval_operator")
 
 
-BASE_OPS_NN_ROOT = Path("")
-TMP_PARENT = Path("")
+BASE_OPS_NN_ROOT = Path("/home/l00936201/AscendC-copliot/ops-x/ops-nn")
+TMP_PARENT = Path("/home/l00936201/AscendC-copliot/tmp")
 
-MSPROF_BIN = Path("/usr/local/Ascend/latest/toolkit/tools/profiler/bin/msprof")
+MSPROF_BIN = Path("/usr/local/Ascend/ascend-toolkit/latest/tools/profiler/bin/msprof")
 
 class EvalError(Exception):
     pass
@@ -196,7 +196,7 @@ def _run_cmd(cmd, cwd: Path, timeout: Optional[int] = None) -> subprocess.Comple
 
 
 def _build_operator(tmp_ops_root: Path, op_name: str, timeout: Optional[int]) -> None:
-    cmd = ["bash", "build.sh", "--pkg", "--soc=ascend910_93", f"--ops={op_name}", f"--vendor_name={op_name}"]
+    cmd = ["bash", "build.sh", "--pkg", "--soc=ascend910b", f"--ops={op_name}", f"--vendor_name={op_name}"]
     logger.info(f"Building operator '{op_name}' ...")
     _run_cmd(cmd, cwd=tmp_ops_root, timeout=timeout)
     logger.info("Build finished.")

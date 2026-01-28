@@ -75,7 +75,7 @@ prompt:
 
   # Feature extraction and program labeling thresholds
   # These control how the LLM perceives and categorizes programs
-  suggest_simplification_after_chars: 500     # Suggest simplifying if program exceeds this many characters
+  suggest_simplification_after_chars: 50000000     # Suggest simplifying if program exceeds this many characters
   include_changes_under_chars: 100           # Include change descriptions in features if under this length  
   concise_implementation_max_lines: 10        # Label as "concise" if program has this many lines or fewer
   comprehensive_implementation_min_lines: 50  # Label as "comprehensive" if program has this many lines or more

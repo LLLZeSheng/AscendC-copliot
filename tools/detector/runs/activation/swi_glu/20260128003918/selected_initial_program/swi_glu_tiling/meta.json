@@ -1,0 +1,9 @@
+{
+  "mode": "function-based",
+  "functions": [
+    "GluSingleTilingCalculator::CalcTiling",
+    "GluSingleTilingCalculator::CalcOptTiling",
+    "GluSingleTilingCalculator::CalcOptBaseShape",
+    "GluSingleTilingCalculator::SaveOptBaseShape"
+  ]
+}

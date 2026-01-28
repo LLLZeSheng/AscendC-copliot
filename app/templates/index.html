@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AscendC Copilot · 算子优化任务台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@300;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="bg-orbit"></div>
+  <div class="bg-grid"></div>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">AC</div>
+        <div>
+          <div class="brand-title">AscendC Copilot</div>
+          <div class="brand-sub">算子优化任务台</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">仓库与算子</div>
+        <div class="field">
+          <label>仓库</label>
+          <select id="repoSelect"></select>
+        </div>
+        <div class="field">
+          <label>算子搜索</label>
+          <input id="opSearch" placeholder="例如 activation/swi_glu" />
+        </div>
+        <div class="op-list" id="opList"></div>
+      </div>
+
+      <div class="panel meta">
+        <div class="panel-title">当前选择</div>
+        <div class="meta-row">
+          <span>仓库</span>
+          <strong id="metaRepo">-</strong>
+        </div>
+        <div class="meta-row">
+          <span>算子</span>
+          <strong id="metaOp">-</strong>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div class="status-dot"></div>
+        <span>FastAPI Local</span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="hero">
+        <div>
+          <h1>算子性能优化全流程</h1>
+          <p>从算子定位、测试用例生成、优化点检测，到 OpenEvolve 迭代，整合在一张工作台里。</p>
+        </div>
+        <div class="hero-card">
+          <div class="hero-label">任务状态</div>
+          <div class="hero-value" id="heroStatus">待选择算子</div>
+          <div class="hero-foot">本地仓库 · AscendC 规范</div>
+        </div>
+      </header>
+
+      <section class="grid">
+        <div class="card">
+          <div class="card-title">输入配置</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>输入 shape</label>
+              <input id="shapeInput" placeholder="例如: [24, 9216, 2560]" />
+            </div>
+            <div class="field">
+              <label>数据类型</label>
+              <select id="dtypeSelect">
+                <option value="float16">float16</option>
+                <option value="float32">float32</option>
+                <option value="int32">int32</option>
+                <option value="uint8">uint8</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>硬件平台</label>
+              <select id="platformSelect">
+                <option value="ascend910b">ascend910b</option>
+                <option value="ascend910_93">ascend910_93</option>
+                <option value="ascend310P">ascend310P</option>
+                <option value="ascend710">ascend710</option>
+              </select>
+            </div>
+          </div>
+          <div class="action-row">
+            <button class="btn primary" id="loadDetail">加载算子信息</button>
+            <button class="btn ghost" id="downloadPackage">下载代码包</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">工作流工具链</div>
+          <div class="chip-row">
+            <span class="chip">ut-LLM</span>
+            <span class="chip">detect-LLM</span>
+            <span class="chip">OpenEvolve</span>
+          </div>
+          <p class="card-copy">聚焦算子优化任务：生成测试用例、识别优化点并驱动迭代式演化。</p>
+          <div class="action-row">
+            <button class="btn" id="runUt">生成测试用例</button>
+            <button class="btn" id="runDetect">检测优化点</button>
+            <button class="btn" id="runEvolve">启动演化</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <div class="tabs">
+          <button class="tab active" data-tab="detail">算子详情</button>
+          <button class="tab" data-tab="ut">UT 测试用例</button>
+          <button class="tab" data-tab="detect">优化点检测</button>
+          <button class="tab" data-tab="evolve">OpenEvolve 迭代</button>
+        </div>
+
+        <div class="tab-panel active" id="tab-detail">
+          <div class="split">
+            <div>
+              <h3>算子说明</h3>
+              <pre id="detailReadme" class="code-block">请选择算子以查看 README 详情。</pre>
+            </div>
+            <div>
+              <h3>文件列表</h3>
+              <div id="detailFiles" class="file-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-ut">
+          <div class="panel-grid">
+            <div>
+              <h3>生成的测试脚本</h3>
+              <pre id="utScript" class="code-block">等待生成…</pre>
+            </div>
+            <div>
+              <h3>输出说明</h3>
+              <div class="note" id="utNote">会在测试目录生成 gen_data.py，用于驱动 openevolve 评测。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-detect">
+          <div class="panel-grid">
+            <div>
+              <h3>可优化片段</h3>
+              <div id="detectList" class="stack"></div>
+            </div>
+            <div>
+              <h3>诊断摘要</h3>
+              <div class="note" id="detectNote">等待 detect-LLM 运行。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-evolve">
+          <div class="panel-grid">
+            <div>
+              <h3>迭代轨迹</h3>
+              <div id="evolveTimeline" class="timeline"></div>
+            </div>
+            <div>
+              <h3>最佳结果</h3>
+              <div class="note" id="evolveSummary">等待 OpenEvolve 输出。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

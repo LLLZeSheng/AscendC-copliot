@@ -1,0 +1,80 @@
+2026-01-27 23:36:19,779 - openevolve.controller - INFO - Logging to /home/l00936201/AscendC-copliot/optimization/activation/swi_glu/test_swi_glu/logs/openevolve_20260127_233619.log
+2026-01-27 23:36:19,779 - openevolve.controller - INFO - Set random seed to 42 for reproducibility
+2026-01-27 23:36:19,816 - openevolve.llm.openai - INFO - Initialized OpenAI LLM with model: deepseek-v3
+2026-01-27 23:36:19,825 - openevolve.llm.ensemble - INFO - Initialized LLM ensemble with models: deepseek-v3 (weight: 0.80), deepseek-v3 (weight: 0.20)
+2026-01-27 23:36:19,842 - openevolve.llm.ensemble - INFO - Initialized LLM ensemble with models: deepseek-v3 (weight: 0.80), deepseek-v3 (weight: 0.20)
+2026-01-27 23:36:19,843 - openevolve.prompt.sampler - INFO - Initialized prompt sampler
+2026-01-27 23:36:19,843 - openevolve.prompt.sampler - INFO - Set custom templates: system=evaluator_system_message, user=None
+2026-01-27 23:36:19,844 - openevolve.database - INFO - Initialized program database with 0 programs
+2026-01-27 23:36:19,850 - openevolve.evaluator - INFO - Successfully loaded evaluation function from /home/l00936201/AscendC-copliot/optimization/eval_test.py
+2026-01-27 23:36:19,850 - openevolve.evaluator - INFO - Initialized evaluator with /home/l00936201/AscendC-copliot/optimization/eval_test.py
+2026-01-27 23:36:19,851 - openevolve.controller - INFO - Initialized OpenEvolve with /home/l00936201/AscendC-copliot/operators/swi_glu/intitial.cpp
+2026-01-27 23:36:19,851 - openevolve.controller - INFO - Adding initial program to database
+2026-01-27 23:36:19,853 - openevolve.evaluator - INFO - Evaluated program fc956552-3c8f-400e-aac4-112a441c4379 in 0.00s: combined_score=0.0000
+2026-01-27 23:36:19,853 - openevolve.database - INFO - New MAP-Elites cell occupied in island 0: {'complexity': 5, 'diversity': 0}
+2026-01-27 23:36:19,854 - openevolve.process_parallel - INFO - Initialized process parallel controller with 1 workers
+2026-01-27 23:36:19,855 - openevolve.process_parallel - INFO - Started process pool with 1 processes
+2026-01-27 23:36:19,855 - openevolve.controller - INFO - Using island-based evolution with 3 islands
+2026-01-27 23:36:19,856 - openevolve.database - INFO - Island Status:
+2026-01-27 23:36:19,856 - openevolve.database - INFO -  * Island 0: 1 programs, best=0.0000, avg=0.0000, diversity=0.00, gen=0 (best: fc956552-3c8f-400e-aac4-112a441c4379)
+2026-01-27 23:36:19,856 - openevolve.database - INFO -    Island 1: 0 programs, best=0.0000, avg=0.0000, diversity=0.00, gen=0
+2026-01-27 23:36:19,856 - openevolve.database - INFO -    Island 2: 0 programs, best=0.0000, avg=0.0000, diversity=0.00, gen=0
+2026-01-27 23:36:19,856 - openevolve.process_parallel - INFO - Starting process-based evolution from iteration 1 for 30 iterations (total: 31)
+2026-01-27 23:36:19,862 - openevolve.process_parallel - INFO - Early stopping disabled
+2026-01-27 23:36:19,882 - openevolve.llm.ensemble - INFO - Initialized LLM ensemble with models: deepseek-v3 (weight: 0.80), deepseek-v3 (weight: 0.20)
+2026-01-27 23:36:19,900 - openevolve.llm.ensemble - INFO - Initialized LLM ensemble with models: deepseek-v3 (weight: 0.80), deepseek-v3 (weight: 0.20)
+2026-01-27 23:36:19,901 - openevolve.prompt.sampler - INFO - Set custom templates: system=evaluator_system_message, user=None
+2026-01-27 23:36:19,902 - openevolve.evaluator - INFO - Successfully loaded evaluation function from /home/l00936201/AscendC-copliot/optimization/eval_test.py
+2026-01-27 23:36:19,902 - openevolve.evaluator - INFO - Initialized evaluator with /home/l00936201/AscendC-copliot/optimization/eval_test.py
+2026-01-27 23:36:19,903 - openevolve.llm.ensemble - INFO - Sampled model: deepseek-v3
+2026-01-27 23:36:32,178 - httpx - INFO - HTTP Request: POST https://api.pandalla.ai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-27 23:36:32,195 - openevolve.evaluator - INFO - Evaluated program 20d76949-2165-4a29-8ca5-1c159b37c37d in 0.00s: combined_score=0.0000
+2026-01-27 23:36:32,197 - openevolve.llm.ensemble - INFO - Sampled model: deepseek-v3
+2026-01-27 23:36:32,200 - openevolve.process_parallel - INFO - Iteration 1: Program 20d76949-2165-4a29-8ca5-1c159b37c37d (parent: fc956552-3c8f-400e-aac4-112a441c4379) completed in 12.29s
+2026-01-27 23:36:32,201 - openevolve.process_parallel - INFO - Metrics: combined_score=0.0000
+2026-01-27 23:36:32,201 - openevolve.process_parallel - INFO - Checkpoint interval reached at iteration 1
+2026-01-27 23:36:32,201 - openevolve.database - INFO - Island Status:
+2026-01-27 23:36:32,201 - openevolve.database - INFO -  * Island 0: 1 programs, best=0.0000, avg=0.0000, diversity=0.00, gen=1 (best: fc956552-3c8f-400e-aac4-112a441c4379)
+2026-01-27 23:36:32,201 - openevolve.database - INFO -    Island 1: 0 programs, best=0.0000, avg=0.0000, diversity=0.00, gen=0
+2026-01-27 23:36:32,201 - openevolve.database - INFO -    Island 2: 0 programs, best=0.0000, avg=0.0000, diversity=0.00, gen=0
+2026-01-27 23:36:32,202 - openevolve.database - INFO - Saved database with 1 programs to /home/l00936201/AscendC-copliot/optimization/activation/swi_glu/test_swi_glu/checkpoints/checkpoint_1
+2026-01-27 23:36:32,202 - openevolve.controller - INFO - Saved best program at checkpoint 1 with metrics: combined_score=0.0000
+2026-01-27 23:36:32,203 - openevolve.controller - INFO - Saved checkpoint at iteration 1 to /home/l00936201/AscendC-copliot/optimization/activation/swi_glu/test_swi_glu/checkpoints/checkpoint_1
+2026-01-27 23:36:42,074 - httpx - INFO - HTTP Request: POST https://api.pandalla.ai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-27 23:36:42,081 - openevolve.evaluator - INFO - Evaluated program 08656c5e-91a2-4822-9ef3-b116221d050c in 0.00s: combined_score=0.0000
+2026-01-27 23:36:42,083 - openevolve.llm.ensemble - INFO - Sampled model: deepseek-v3
+2026-01-27 23:36:42,089 - openevolve.process_parallel - INFO - Iteration 2: Program 08656c5e-91a2-4822-9ef3-b116221d050c (parent: fc956552-3c8f-400e-aac4-112a441c4379) completed in 9.89s
+2026-01-27 23:36:42,090 - openevolve.process_parallel - INFO - Metrics: combined_score=0.0000
+2026-01-27 23:36:42,090 - openevolve.process_parallel - INFO - Checkpoint interval reached at iteration 2
+2026-01-27 23:36:42,090 - openevolve.database - INFO - Island Status:
+2026-01-27 23:36:42,090 - openevolve.database - INFO -    Island 0: 1 programs, best=0.0000, avg=0.0000, diversity=0.00, gen=1 (best: fc956552-3c8f-400e-aac4-112a441c4379)
+2026-01-27 23:36:42,090 - openevolve.database - INFO -  * Island 1: 0 programs, best=0.0000, avg=0.0000, diversity=0.00, gen=1
+2026-01-27 23:36:42,090 - openevolve.database - INFO -    Island 2: 0 programs, best=0.0000, avg=0.0000, diversity=0.00, gen=0
+2026-01-27 23:36:42,091 - openevolve.database - INFO - Saved database with 1 programs to /home/l00936201/AscendC-copliot/optimization/activation/swi_glu/test_swi_glu/checkpoints/checkpoint_2
+2026-01-27 23:36:42,091 - openevolve.controller - INFO - Saved best program at checkpoint 2 with metrics: combined_score=0.0000
+2026-01-27 23:36:42,091 - openevolve.controller - INFO - Saved checkpoint at iteration 2 to /home/l00936201/AscendC-copliot/optimization/activation/swi_glu/test_swi_glu/checkpoints/checkpoint_2
+2026-01-27 23:36:56,830 - httpx - INFO - HTTP Request: POST https://api.pandalla.ai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-27 23:36:56,838 - openevolve.evaluator - INFO - Evaluated program 237f491a-f2d7-427d-9b14-973c82c3e475 in 0.00s: combined_score=0.0000
+2026-01-27 23:36:56,839 - openevolve.llm.ensemble - INFO - Sampled model: deepseek-v3
+2026-01-27 23:36:56,847 - openevolve.process_parallel - INFO - Iteration 3: Program 237f491a-f2d7-427d-9b14-973c82c3e475 (parent: fc956552-3c8f-400e-aac4-112a441c4379) completed in 14.76s
+2026-01-27 23:36:56,847 - openevolve.process_parallel - INFO - Metrics: combined_score=0.0000
+2026-01-27 23:36:56,847 - openevolve.process_parallel - INFO - Checkpoint interval reached at iteration 3
+2026-01-27 23:36:56,847 - openevolve.database - INFO - Island Status:
+2026-01-27 23:36:56,847 - openevolve.database - INFO -    Island 0: 1 programs, best=0.0000, avg=0.0000, diversity=0.00, gen=1 (best: fc956552-3c8f-400e-aac4-112a441c4379)
+2026-01-27 23:36:56,847 - openevolve.database - INFO -    Island 1: 1 programs, best=0.0000, avg=0.0000, diversity=0.00, gen=1
+2026-01-27 23:36:56,847 - openevolve.database - INFO -  * Island 2: 0 programs, best=0.0000, avg=0.0000, diversity=0.00, gen=1
+2026-01-27 23:36:56,848 - openevolve.database - INFO - Saved database with 2 programs to /home/l00936201/AscendC-copliot/optimization/activation/swi_glu/test_swi_glu/checkpoints/checkpoint_3
+2026-01-27 23:36:56,849 - openevolve.controller - INFO - Saved best program at checkpoint 3 with metrics: combined_score=0.0000
+2026-01-27 23:36:56,849 - openevolve.controller - INFO - Saved checkpoint at iteration 3 to /home/l00936201/AscendC-copliot/optimization/activation/swi_glu/test_swi_glu/checkpoints/checkpoint_3
+2026-01-27 23:37:01,431 - openevolve.controller - INFO - Received signal 2, initiating graceful shutdown...
+2026-01-27 23:37:01,431 - openevolve.controller - INFO - Received signal 2, initiating graceful shutdown...
+2026-01-27 23:37:01,431 - openevolve.process_parallel - INFO - Graceful shutdown requested...
+2026-01-27 23:37:01,431 - openevolve.process_parallel - INFO - Graceful shutdown requested...
+2026-01-27 23:37:01,435 - openevolve.process_parallel - INFO - Shutdown requested, canceling remaining evaluations...
+2026-01-27 23:37:01,435 - openevolve.process_parallel - INFO - ✅ Evolution completed - Shutdown requested
+2026-01-27 23:37:01,436 - openevolve.controller - INFO - Evolution stopped due to shutdown request
+2026-01-27 23:37:01,792 - openevolve.controller - INFO - Force exit requested - terminating immediately
+2026-01-27 23:37:01,792 - openevolve.controller - INFO - Force exit requested - terminating immediately
+2026-01-27 23:37:02,101 - openevolve.controller - INFO - Force exit requested - terminating immediately
+2026-01-27 23:37:02,101 - openevolve.controller - INFO - Force exit requested - terminating immediately
+2026-01-27 23:37:02,104 - openevolve.llm.ensemble - INFO - Sampled model: deepseek-v3

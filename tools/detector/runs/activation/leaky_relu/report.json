@@ -1,0 +1,52 @@
+{
+  "op_base": "/home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/leaky_relu",
+  "category": "activation",
+  "opname": "leaky_relu",
+  "decisions": [
+    {
+      "file": "/home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/leaky_relu/op_host/leaky_relu_infershape.cpp",
+      "label": "decl",
+      "confidence": 99,
+      "explanation": "File contains only an op registration macro and a call to a generic shape inference function, with no tiling loops, arithmetic, or UB size calculations.",
+      "evidence": [
+        "L20: IMPL_OP_INFERSHAPE registration macro, no function body",
+        "L20: Calls Ops::Base::InferShape4Elewise, which is a declaration/forward to another file, no tiling logic present"
+      ]
+    },
+    {
+      "file": "/home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/leaky_relu/op_host/leaky_relu_def.cpp",
+      "label": "decl",
+      "confidence": 100,
+      "explanation": "File contains only op registration, input/output definitions, and attribute configuration. No function bodies with loops, arithmetic, or tiling logic are present.",
+      "evidence": [
+        "L15-L33: LeakyRelu constructor defines input/output specs and AICore config, no tiling math",
+        "L35: OP_ADD macro registers the op, no implementation",
+        "Entire file: No loops, no tile size calculations, no UB/GM sizing functions"
+      ]
+    },
+    {
+      "file": "/home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/leaky_relu/op_host/arch35/leaky_relu_tiling_arch35.h",
+      "label": "decl",
+      "confidence": 100,
+      "explanation": "File is a header containing only a struct definition and include guard, with no function bodies, loops, or tiling math.",
+      "evidence": [
+        "L1-L15: Copyright and license boilerplate",
+        "L20-L24: Header guard and include statement",
+        "L26-L30: Struct LeakrReluCompileInfo definition only, no methods or logic"
+      ]
+    },
+    {
+      "file": "/home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/leaky_relu/op_host/arch35/leaky_relu_tiling_arch35.cpp",
+      "label": "decl",
+      "confidence": 85,
+      "explanation": "The file contains registration macros and wrapper functions that delegate tiling to external helpers (ElewiseBaseTiling::DoTiling). No explicit loops, tile size calculations, or UB/GM arithmetic are present in the function bodies.",
+      "evidence": [
+        "L78-L80: TilingForLeakyRelu is a static wrapper that creates LeakyReluTiling and calls RunTiling, no tiling math",
+        "L58-L76: RunTiling calls eleBaseTiling.DoTiling with different DAG types, but the actual tiling logic is inside ElewiseBaseTiling, not in this file",
+        "L82-L92: TilingPrepareForLeakyRelu fetches platform info and writes to compileInfo, no loops or tile calculations",
+        "L94: IMPL_OP_OPTILING registration macro, no implementation",
+        "L38-L52: SetTilingData sets tiling key and block dim from precomputed baseTiling, no arithmetic"
+      ]
+    }
+  ]
+}

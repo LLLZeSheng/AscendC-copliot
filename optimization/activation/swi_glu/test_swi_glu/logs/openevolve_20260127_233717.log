@@ -1,0 +1,161 @@
+2026-01-27 23:37:17,443 - openevolve.controller - INFO - Logging to /home/l00936201/AscendC-copliot/optimization/activation/swi_glu/test_swi_glu/logs/openevolve_20260127_233717.log
+2026-01-27 23:37:17,443 - openevolve.controller - INFO - Set random seed to 42 for reproducibility
+2026-01-27 23:37:17,480 - openevolve.llm.openai - INFO - Initialized OpenAI LLM with model: deepseek-v3
+2026-01-27 23:37:17,489 - openevolve.llm.ensemble - INFO - Initialized LLM ensemble with models: deepseek-v3 (weight: 0.80), deepseek-v3 (weight: 0.20)
+2026-01-27 23:37:17,506 - openevolve.llm.ensemble - INFO - Initialized LLM ensemble with models: deepseek-v3 (weight: 0.80), deepseek-v3 (weight: 0.20)
+2026-01-27 23:37:17,507 - openevolve.prompt.sampler - INFO - Initialized prompt sampler
+2026-01-27 23:37:17,508 - openevolve.prompt.sampler - INFO - Set custom templates: system=evaluator_system_message, user=None
+2026-01-27 23:37:17,508 - openevolve.database - INFO - Initialized program database with 0 programs
+2026-01-27 23:37:17,509 - openevolve.evaluator - INFO - Successfully loaded evaluation function from /home/l00936201/AscendC-copliot/optimization/eval_test.py
+2026-01-27 23:37:17,509 - openevolve.evaluator - INFO - Initialized evaluator with /home/l00936201/AscendC-copliot/optimization/eval_test.py
+2026-01-27 23:37:17,509 - openevolve.controller - INFO - Initialized OpenEvolve with /home/l00936201/AscendC-copliot/operators/swi_glu/intitial.cpp
+2026-01-27 23:37:17,510 - openevolve.controller - INFO - Adding initial program to database
+2026-01-27 23:37:17,514 - eval_operator - INFO - ================================================================================
+2026-01-27 23:37:17,514 - eval_operator - INFO - BEGIN eval: category=activation op_name=swi_glu
+2026-01-27 23:37:17,514 - eval_operator - INFO - BASE_OPS_NN_ROOT: /home/l00936201/AscendC-copliot/ops-x/ops-nn
+2026-01-27 23:37:17,514 - eval_operator - INFO - TMP_PARENT:       /home/l00936201/AscendC-copliot/tmp
+2026-01-27 23:37:17,514 - eval_operator - INFO - MSPROF_BIN:       /usr/local/Ascend/ascend-toolkit/latest/tools/profiler/bin/msprof
+2026-01-27 23:37:17,514 - eval_operator - INFO - python_code_path: /home/l00936201/AscendC-copliot/tools/utGenerator/test_swi_glu.py
+2026-01-27 23:37:17,514 - eval_operator - INFO - kernel_files: []
+2026-01-27 23:37:17,514 - eval_operator - INFO - host_files:   ['swi_glu_tiling.cpp']
+2026-01-27 23:37:17,514 - eval_operator - INFO - Locating operator dir: /home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/swi_glu
+2026-01-27 23:37:17,515 - eval_operator - INFO - Verifying requested replacement files exist in BASE tree...
+2026-01-27 23:37:17,515 - eval_operator - INFO - Host dir:   /home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/swi_glu/op_host
+2026-01-27 23:37:17,515 - eval_operator - INFO - Verify host file exists (recursive): swi_glu_tiling.cpp -> /home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/swi_glu/op_host/swi_glu_tiling.cpp
+2026-01-27 23:37:17,515 - eval_operator - INFO - Copy base tree:
+  FROM: /home/l00936201/AscendC-copliot/ops-x/ops-nn
+  TO:   /home/l00936201/AscendC-copliot/tmp/ops_nn_dcbac538e2cc42b6a1f74924f8574a51/ops-nn-master
+2026-01-27 23:37:19,544 - eval_operator - INFO - TMP ops root created: /home/l00936201/AscendC-copliot/tmp/ops_nn_dcbac538e2cc42b6a1f74924f8574a51/ops-nn-master
+2026-01-27 23:37:19,545 - eval_operator - INFO - Replacing files in TMP operator dir: /home/l00936201/AscendC-copliot/tmp/ops_nn_dcbac538e2cc42b6a1f74924f8574a51/ops-nn-master/activation/swi_glu
+2026-01-27 23:37:19,545 - eval_operator - INFO - Replace host file: swi_glu_tiling.cpp -> /home/l00936201/AscendC-copliot/tmp/ops_nn_dcbac538e2cc42b6a1f74924f8574a51/ops-nn-master/activation/swi_glu/op_host/swi_glu_tiling.cpp (len=25675 chars)
+2026-01-27 23:37:19,546 - eval_operator - INFO - Staging python code into TMP test_duration:
+  src: /home/l00936201/AscendC-copliot/tools/utGenerator/test_swi_glu.py
+2026-01-27 23:37:19,547 - eval_operator - INFO -   dst: /home/l00936201/AscendC-copliot/tmp/ops_nn_dcbac538e2cc42b6a1f74924f8574a51/ops-nn-master/test_duration/test_swi_glu.py
+2026-01-27 23:37:19,547 - eval_operator - INFO - Cleaning build directories in TMP root: /home/l00936201/AscendC-copliot/tmp/ops_nn_dcbac538e2cc42b6a1f74924f8574a51/ops-nn-master
+2026-01-27 23:37:19,548 - eval_operator - INFO -   No build* directories found to remove.
+2026-01-27 23:37:19,548 - eval_operator - INFO - Building operator 'swi_glu' ...
+2026-01-27 23:37:19,548 - eval_operator - INFO - Run cmd:
+  cwd: /home/l00936201/AscendC-copliot/tmp/ops_nn_dcbac538e2cc42b6a1f74924f8574a51/ops-nn-master
+  cmd: bash build.sh --pkg --soc=ascend910b --ops=swi_glu --vendor_name=swi_glu
+2026-01-27 23:37:20,241 - eval_operator - INFO - Command return code: 1
+2026-01-27 23:37:20,242 - eval_operator - INFO - --- STDOUT (head) ---
+[2026-01-27 23:37:19] COMPUTE_UNIT: ascend910b;
+[2026-01-27 23:37:19] CMAKE_ARGS: -DBUILD_PATH=/home/l00936201/AscendC-copliot/tmp/ops_nn_dcbac538e2cc42b6a1f74924f8574a51/ops-nn-master/build -DENABLE_VALGRIND=FALSE -DCMAKE_BUILD_TYPE=Release -DENABLE_MSSANITIZER=FALSE -DENABLE_OOM=FALSE -DENABLE_COVERAGE=FALSE -DENABLE_TEST=FALSE -DENABLE_UT_EXEC=TRUE -DENABLE_CUSTOM=TRUE -DENABLE_STATIC=FALSE -DASCEND_OP_NAME=swi_glu -DVENDOR_NAME=swi_glu -DENABLE_BINARY=TRUE -DENABLE_PACKAGE=TRUE -DENABLE_EXPERIMENTAL=FALSE -DNO_FORCE=FALSE -DBUILD_MODE= -DOP_HOST_UT=FALSE -DOP_API_UT=FALSE -DOP_KERNEL_UT=FALSE -DOP_KERNEL_AICPU_UT=FALSE -DUT_TEST_ALL=FALSE -DASCEND_COMPUTE_UNIT=ascend910b; -DCANN_3RD_LIB_PATH=/home/l00936201/AscendC-copliot/tmp/ops_nn_dcbac538e2cc42b6a1f74924f8574a51/ops-nn-master/build/third_party
+[2026-01-27 23:37:19] -- The C compiler identification is GNU 10.3.1
+[2026-01-27 23:37:19] -- The CXX compiler identification is GNU 10.3.1
+[2026-01-27 23:37:19] -- Detecting C compiler ABI info
+[2026-01-27 23:37:19] -- Detecting C compiler ABI info - done
+[2026-01-27 23:37:20] -- Check for working C compiler: /usr/bin/cc - skipped
+[2026-01-27 23:37:20] -- Detecting C compile features
+[2026-01-27 23:37:20] -- Detecting C compile features - done
+[2026-01-27 23:37:20] -- Detecting CXX compiler ABI info
+[2026-01-27 23:37:20] -- Detecting CXX compiler ABI info - done
+[2026-01-27 23:37:20] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[2026-01-27 23:37:20] -- Detecting CXX compile features
+[2026-01-27 23:37:20] -- Detecting CXX compile features - done
+[2026-01-27 23:37:20] -- compile project with library
+[2026-01-27 23:37:20] -- Search libs under install path /usr/local/Ascend/ascend-toolkit/latest
+[2026-01-27 23:37:20] -- CMAKE_MODULE_PATH            :/home/l00936201/AscendC-copliot/tmp/ops_nn_dcbac538e2cc42b6a1f74924f8574a51/ops-nn-master/cmake/modules
+[2026-01-27 23:37:20] -- compile option:  -O2 -Wall -Wextra -Wshadow -Wformat=2 -fno-common -fPIC -Wformat-si
+2026-01-27 23:37:20,242 - eval_operator - INFO - --- STDERR (head) ---
+CMake Error at /usr/share/cmake/Modules/FindPackageHandleStandardArgs.cmake:230 (message):
+  Could NOT find OPBASE (missing: OPBASE_INC_DIR)
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/FindPackageHandleStandardArgs.cmake:594 (_FPHSA_FAILURE_MESSAGE)
+  cmake/modules/FindOPBASE.cmake:40 (find_package_handle_standard_args)
+  cmake/dependencies.cmake:69 (find_package)
+  CMakeLists.txt:97 (include)
+
+
+
+2026-01-27 23:37:20,245 - openevolve.evaluator - INFO - Evaluated program df110e46-68f6-48d2-aa03-6506617f00a7 in 2.73s: combined_score=0.0000
+2026-01-27 23:37:20,245 - openevolve.database - INFO - New MAP-Elites cell occupied in island 0: {'complexity': 5, 'diversity': 0}
+2026-01-27 23:37:20,247 - openevolve.process_parallel - INFO - Initialized process parallel controller with 1 workers
+2026-01-27 23:37:20,248 - openevolve.process_parallel - INFO - Started process pool with 1 processes
+2026-01-27 23:37:20,248 - openevolve.controller - INFO - Using island-based evolution with 3 islands
+2026-01-27 23:37:20,248 - openevolve.database - INFO - Island Status:
+2026-01-27 23:37:20,248 - openevolve.database - INFO -  * Island 0: 1 programs, best=0.0000, avg=0.0000, diversity=0.00, gen=0 (best: df110e46-68f6-48d2-aa03-6506617f00a7)
+2026-01-27 23:37:20,248 - openevolve.database - INFO -    Island 1: 0 programs, best=0.0000, avg=0.0000, diversity=0.00, gen=0
+2026-01-27 23:37:20,248 - openevolve.database - INFO -    Island 2: 0 programs, best=0.0000, avg=0.0000, diversity=0.00, gen=0
+2026-01-27 23:37:20,248 - openevolve.process_parallel - INFO - Starting process-based evolution from iteration 1 for 30 iterations (total: 31)
+2026-01-27 23:37:20,255 - openevolve.process_parallel - INFO - Early stopping disabled
+2026-01-27 23:37:20,275 - openevolve.llm.ensemble - INFO - Initialized LLM ensemble with models: deepseek-v3 (weight: 0.80), deepseek-v3 (weight: 0.20)
+2026-01-27 23:37:20,293 - openevolve.llm.ensemble - INFO - Initialized LLM ensemble with models: deepseek-v3 (weight: 0.80), deepseek-v3 (weight: 0.20)
+2026-01-27 23:37:20,293 - openevolve.prompt.sampler - INFO - Set custom templates: system=evaluator_system_message, user=None
+2026-01-27 23:37:20,294 - openevolve.evaluator - INFO - Successfully loaded evaluation function from /home/l00936201/AscendC-copliot/optimization/eval_test.py
+2026-01-27 23:37:20,294 - openevolve.evaluator - INFO - Initialized evaluator with /home/l00936201/AscendC-copliot/optimization/eval_test.py
+2026-01-27 23:37:20,296 - openevolve.llm.ensemble - INFO - Sampled model: deepseek-v3
+2026-01-27 23:37:32,780 - openevolve.controller - INFO - Received signal 2, initiating graceful shutdown...
+2026-01-27 23:37:32,780 - openevolve.controller - INFO - Received signal 2, initiating graceful shutdown...
+2026-01-27 23:37:32,780 - openevolve.process_parallel - INFO - Graceful shutdown requested...
+2026-01-27 23:37:32,780 - openevolve.process_parallel - INFO - Graceful shutdown requested...
+2026-01-27 23:37:32,784 - openevolve.process_parallel - INFO - Shutdown requested, canceling remaining evaluations...
+2026-01-27 23:37:32,784 - openevolve.process_parallel - INFO - ✅ Evolution completed - Shutdown requested
+2026-01-27 23:37:32,784 - openevolve.controller - INFO - Evolution stopped due to shutdown request
+2026-01-27 23:37:33,160 - openevolve.controller - INFO - Force exit requested - terminating immediately
+2026-01-27 23:37:33,160 - openevolve.controller - INFO - Force exit requested - terminating immediately
+2026-01-27 23:37:33,541 - openevolve.controller - INFO - Force exit requested - terminating immediately
+2026-01-27 23:37:33,541 - openevolve.controller - INFO - Force exit requested - terminating immediately
+2026-01-27 23:37:33,545 - openevolve.llm.ensemble - INFO - Sampled model: deepseek-v3
+2026-01-27 23:37:34,405 - httpx - INFO - HTTP Request: POST https://api.pandalla.ai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-27 23:37:45,637 - httpx - INFO - HTTP Request: POST https://api.pandalla.ai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-27 23:37:45,646 - eval_operator - INFO - ================================================================================
+2026-01-27 23:37:45,646 - eval_operator - INFO - BEGIN eval: category=activation op_name=swi_glu
+2026-01-27 23:37:45,646 - eval_operator - INFO - BASE_OPS_NN_ROOT: /home/l00936201/AscendC-copliot/ops-x/ops-nn
+2026-01-27 23:37:45,646 - eval_operator - INFO - TMP_PARENT:       /home/l00936201/AscendC-copliot/tmp
+2026-01-27 23:37:45,646 - eval_operator - INFO - MSPROF_BIN:       /usr/local/Ascend/ascend-toolkit/latest/tools/profiler/bin/msprof
+2026-01-27 23:37:45,646 - eval_operator - INFO - python_code_path: /home/l00936201/AscendC-copliot/tools/utGenerator/test_swi_glu.py
+2026-01-27 23:37:45,646 - eval_operator - INFO - kernel_files: []
+2026-01-27 23:37:45,646 - eval_operator - INFO - host_files:   ['swi_glu_tiling.cpp']
+2026-01-27 23:37:45,647 - eval_operator - INFO - Locating operator dir: /home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/swi_glu
+2026-01-27 23:37:45,647 - eval_operator - INFO - Verifying requested replacement files exist in BASE tree...
+2026-01-27 23:37:45,647 - eval_operator - INFO - Host dir:   /home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/swi_glu/op_host
+2026-01-27 23:37:45,647 - eval_operator - INFO - Verify host file exists (recursive): swi_glu_tiling.cpp -> /home/l00936201/AscendC-copliot/ops-x/ops-nn/activation/swi_glu/op_host/swi_glu_tiling.cpp
+2026-01-27 23:37:45,647 - eval_operator - INFO - Copy base tree:
+  FROM: /home/l00936201/AscendC-copliot/ops-x/ops-nn
+  TO:   /home/l00936201/AscendC-copliot/tmp/ops_nn_0eb4c2fd48404c5bb1f6f7bb1aa221e2/ops-nn-master
+2026-01-27 23:37:47,688 - eval_operator - INFO - TMP ops root created: /home/l00936201/AscendC-copliot/tmp/ops_nn_0eb4c2fd48404c5bb1f6f7bb1aa221e2/ops-nn-master
+2026-01-27 23:37:47,689 - eval_operator - INFO - Replacing files in TMP operator dir: /home/l00936201/AscendC-copliot/tmp/ops_nn_0eb4c2fd48404c5bb1f6f7bb1aa221e2/ops-nn-master/activation/swi_glu
+2026-01-27 23:37:47,689 - eval_operator - INFO - Replace host file: swi_glu_tiling.cpp -> /home/l00936201/AscendC-copliot/tmp/ops_nn_0eb4c2fd48404c5bb1f6f7bb1aa221e2/ops-nn-master/activation/swi_glu/op_host/swi_glu_tiling.cpp (len=26077 chars)
+2026-01-27 23:37:47,689 - eval_operator - INFO - Staging python code into TMP test_duration:
+  src: /home/l00936201/AscendC-copliot/tools/utGenerator/test_swi_glu.py
+2026-01-27 23:37:47,690 - eval_operator - INFO -   dst: /home/l00936201/AscendC-copliot/tmp/ops_nn_0eb4c2fd48404c5bb1f6f7bb1aa221e2/ops-nn-master/test_duration/test_swi_glu.py
+2026-01-27 23:37:47,690 - eval_operator - INFO - Cleaning build directories in TMP root: /home/l00936201/AscendC-copliot/tmp/ops_nn_0eb4c2fd48404c5bb1f6f7bb1aa221e2/ops-nn-master
+2026-01-27 23:37:47,690 - eval_operator - INFO -   No build* directories found to remove.
+2026-01-27 23:37:47,690 - eval_operator - INFO - Building operator 'swi_glu' ...
+2026-01-27 23:37:47,690 - eval_operator - INFO - Run cmd:
+  cwd: /home/l00936201/AscendC-copliot/tmp/ops_nn_0eb4c2fd48404c5bb1f6f7bb1aa221e2/ops-nn-master
+  cmd: bash build.sh --pkg --soc=ascend910b --ops=swi_glu --vendor_name=swi_glu
+2026-01-27 23:37:48,369 - eval_operator - INFO - Command return code: 1
+2026-01-27 23:37:48,369 - eval_operator - INFO - --- STDOUT (head) ---
+[2026-01-27 23:37:47] COMPUTE_UNIT: ascend910b;
+[2026-01-27 23:37:47] CMAKE_ARGS: -DBUILD_PATH=/home/l00936201/AscendC-copliot/tmp/ops_nn_0eb4c2fd48404c5bb1f6f7bb1aa221e2/ops-nn-master/build -DENABLE_VALGRIND=FALSE -DCMAKE_BUILD_TYPE=Release -DENABLE_MSSANITIZER=FALSE -DENABLE_OOM=FALSE -DENABLE_COVERAGE=FALSE -DENABLE_TEST=FALSE -DENABLE_UT_EXEC=TRUE -DENABLE_CUSTOM=TRUE -DENABLE_STATIC=FALSE -DASCEND_OP_NAME=swi_glu -DVENDOR_NAME=swi_glu -DENABLE_BINARY=TRUE -DENABLE_PACKAGE=TRUE -DENABLE_EXPERIMENTAL=FALSE -DNO_FORCE=FALSE -DBUILD_MODE= -DOP_HOST_UT=FALSE -DOP_API_UT=FALSE -DOP_KERNEL_UT=FALSE -DOP_KERNEL_AICPU_UT=FALSE -DUT_TEST_ALL=FALSE -DASCEND_COMPUTE_UNIT=ascend910b; -DCANN_3RD_LIB_PATH=/home/l00936201/AscendC-copliot/tmp/ops_nn_0eb4c2fd48404c5bb1f6f7bb1aa221e2/ops-nn-master/build/third_party
+[2026-01-27 23:37:47] -- The C compiler identification is GNU 10.3.1
+[2026-01-27 23:37:47] -- The CXX compiler identification is GNU 10.3.1
+[2026-01-27 23:37:47] -- Detecting C compiler ABI info
+[2026-01-27 23:37:48] -- Detecting C compiler ABI info - done
+[2026-01-27 23:37:48] -- Check for working C compiler: /usr/bin/cc - skipped
+[2026-01-27 23:37:48] -- Detecting C compile features
+[2026-01-27 23:37:48] -- Detecting C compile features - done
+[2026-01-27 23:37:48] -- Detecting CXX compiler ABI info
+[2026-01-27 23:37:48] -- Detecting CXX compiler ABI info - done
+[2026-01-27 23:37:48] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[2026-01-27 23:37:48] -- Detecting CXX compile features
+[2026-01-27 23:37:48] -- Detecting CXX compile features - done
+[2026-01-27 23:37:48] -- compile project with library
+[2026-01-27 23:37:48] -- Search libs under install path /usr/local/Ascend/ascend-toolkit/latest
+[2026-01-27 23:37:48] -- CMAKE_MODULE_PATH            :/home/l00936201/AscendC-copliot/tmp/ops_nn_0eb4c2fd48404c5bb1f6f7bb1aa221e2/ops-nn-master/cmake/modules
+[2026-01-27 23:37:48] -- compile option:  -O2 -Wall -Wextra -Wshadow -Wformat=2 -fno-common -fPIC -Wformat-si
+2026-01-27 23:37:48,369 - eval_operator - INFO - --- STDERR (head) ---
+CMake Error at /usr/share/cmake/Modules/FindPackageHandleStandardArgs.cmake:230 (message):
+  Could NOT find OPBASE (missing: OPBASE_INC_DIR)
+Call Stack (most recent call first):
+  /usr/share/cmake/Modules/FindPackageHandleStandardArgs.cmake:594 (_FPHSA_FAILURE_MESSAGE)
+  cmake/modules/FindOPBASE.cmake:40 (find_package_handle_standard_args)
+  cmake/dependencies.cmake:69 (find_package)
+  CMakeLists.txt:97 (include)
+
+
+
+2026-01-27 23:37:48,370 - openevolve.evaluator - INFO - Evaluated program 5f554be0-01c7-430c-9736-9880fbd87416 in 2.73s: combined_score=0.0000
+2026-01-27 23:37:48,372 - openevolve.llm.ensemble - INFO - Sampled model: deepseek-v3

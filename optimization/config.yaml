@@ -1,0 +1,71 @@
+# OpenEvolve Default Configuration
+# This file contains all available configuration options with sensible defaults
+# You can use this as a template for your own configuration
+
+# General settings
+max_iterations: 100                  # Maximum number of evolution iterations
+checkpoint_interval: 1               # Save checkpoints every N iterations
+log_level: "INFO"                     # Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)                         # Custom directory for logs (default: output_dir/logs)
+random_seed: 42                       # Random seed for reproducibility (null = random, 42 = default)
+max_code_length: 200000                # Maximum allowed code length in characters
+
+# LLM configuration
+llm:
+  primary_model: "deepseek-v3"        # Primary LLM model to use for generation
+  primary_model_weight: 0.8          # Weight for primary model in ensemble
+  secondary_model: "deepseek-v3"  # Secondary LLM model for ensemble (optional)
+  secondary_model_weight: 0.2        # Weight for secondary model in ensemble
+
+  # API configuration
+  api_base: "https://api.pandalla.ai/v1"  # Base URL for API (change for non-OpenAI models)
+  api_key: "sk-IUWnUq5I2UJmOqTXeedNb5JldMcIgFlF52mwHOrfUB2motGs"                       # API key (defaults to OPENAI_API_KEY env variable)
+
+  # Generation parameters
+  temperature: 0.7                    # Temperature for generation (higher = more creative)
+  top_p: 0.95                         # Top-p sampling parameter
+  max_tokens: 52000                    # Maximum tokens to generate
+
+  # Request parameters
+  timeout: 300                         # Timeout for API requests in seconds
+# Prompt configuration
+prompt:
+  # Number of examples to include in the prompt
+  num_top_programs: 3                 # Number of top-performing programs to include
+  num_diverse_programs: 2             # Number of diverse programs to include
+  # Template stochasticity
+  use_template_stochasticity: true    # Use random variations in templates for diversity
+
+# Database configuration
+database:
+  # General settings
+  db_path: null                       # Path to persist database (null = in-memory only)
+  in_memory: true                     # Keep database in memory for faster access
+  log_prompts: true                  # If true, log all prompts and responses into the database
+
+  # Evolutionary parameters
+  population_size: 50               # Maximum number of programs to keep in memory
+  archive_size: 20                   # Size of elite archive
+  num_islands: 3                      # Number of islands for island model (separate populations)
+  # Selection parameters
+  elite_selection_ratio: 0.3          # Ratio of elite programs to select
+  exploration_ratio: 0.6              # Ratio of exploration vs exploitation
+  exploitation_ratio: 0.6             # Ratio of exploitation vs random selection
+  log_prompts: true                  # If true, log all prompts and responses into the database
+# Evaluator configuration
+evaluator:
+  # Fitness calculation: Uses 'combined_score' if available, otherwise averages
+  # all metrics EXCEPT those listed in database.feature_dimensions
+  
+  # General settings
+  timeout: 1200                        # Maximum evaluation time in seconds
+  max_retries: 3                      # Maximum number of retries for evaluation
+
+  # Evaluation strategies
+  cascade_evaluation: false            # Use cascade evaluation to filter bad solutions early
+  cascade_thresholds: [0.5,0.75]                # Thresholds for advancing to next evaluation stage
+  # Parallel evaluation
+  parallel_evaluations: 1             # Number of parallel evaluations
+  use_llm_feedback: false             # Use LLM to evaluate code quality
+
+diff_based_evaluation: true
+allow_full_rewrites: false
