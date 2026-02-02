@@ -20,7 +20,7 @@ Notes:
 import asyncio
 from pathlib import Path
 
-from openevolve import OpenEvolve  # Make sure this import matches your environment
+from openevolve.openevolve import OpenEvolve  # Make sure this import matches your environment
 
 
 OPENEVOLVE_ROOT = "/home/l00936201/AscendC-copliot/optimization"
@@ -32,6 +32,8 @@ def run_openevolve(
     operator_category: str,
     file_name: str,
     test_file_path: str,
+    run_id=None,
+    output_dir=None,
     iterations: int = 15,
 ):
     initial_program = Path(initial_program_path).resolve()
@@ -49,11 +51,18 @@ def run_openevolve(
     print(f"  file_name         = {file_name}")
     print(f"  initial_program   = {initial_program}")
     print(f"  test_file_path    = {test_file}")
+    print(f"  output_dir        = {output_dir}")
 
     evaluation_file = str(Path(OPENEVOLVE_ROOT) / "eval_test.py")
     config_path = str(Path(OPENEVOLVE_ROOT) / "config.yaml")
     test_name = Path(test_file_path).stem  # e.g., "test_0.py" -> "test_0"
-    output_dir = str(Path(OPENEVOLVE_ROOT) / operator_category / operator_name / test_name)
+    if output_dir:
+        output_path = Path(output_dir)
+    else:
+        base_dir = Path(OPENEVOLVE_ROOT) / operator_category / operator_name
+        suffix = f"{test_name}_{run_id}" if run_id else test_name
+        output_path = base_dir / suffix
+    output_dir = str(output_path)
 
 
     # Pass only what you want OpenEvolve to carry through to eval().
@@ -106,6 +115,16 @@ if __name__ == "__main__":
         help="Path to the python test file to use during evaluation",
     )
     parser.add_argument(
+        "--run-id",
+        default=None,
+        help="Optional run id appended to the output directory",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=None,
+        help="Override output directory (absolute or relative to CWD)",
+    )
+    parser.add_argument(
         "--iterations",
         type=int,
         default=30,
@@ -120,5 +139,7 @@ if __name__ == "__main__":
         operator_category=args.category,
         file_name=args.file_name,
         test_file_path=args.test_file,
+        run_id=args.run_id,
+        output_dir=args.output_dir,
         iterations=args.iterations,
     )

@@ -1,5 +1,4 @@
-
-# AscendC Copilot 设计与使用说明
+# AscendC Copilot 设计与使用说明（优化版）
 
 ## 1. 核心能力
 - **算子浏览**：自动扫描本地 `ops-x` 仓库，展示算子目录结构与 README 摘要。
@@ -100,7 +99,7 @@ pip install -r requirements.txt
 
 ### 4.2 启动
 ```bash
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 浏览器访问 http://localhost:8000 使用前端工作台。
 

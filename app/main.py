@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import difflib
 import io
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -36,6 +38,12 @@ app = FastAPI(title="AscendC Copilot")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "app" / "static"), name="static")
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
+
+logging.basicConfig(
+    level=os.environ.get("ASCENDC_LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
+logger = logging.getLogger("ascendc-copilot")
 
 
 @dataclass
@@ -77,6 +85,9 @@ class PackageRequest(BaseModel):
     repo: str
     op: str
     include_generated: bool = True
+    output_dir: Optional[str] = None
+    best_variant: Optional[str] = None
+    best_checkpoint: Optional[str] = None
 
 
 _sessions: Dict[str, Dict[str, Any]] = {}
@@ -342,6 +353,124 @@ def _load_json(path: Path) -> Optional[Dict[str, Any]]:
         return None
 
 
+def _rel_path_for_ui(path_str: str, repo: str) -> str:
+    if not path_str:
+        return path_str
+    p = Path(path_str)
+    if not p.is_absolute():
+        p = (BASE_DIR / path_str).resolve()
+    else:
+        p = p.resolve()
+    repo_root = (OPS_ROOT / repo).resolve()
+    for root in (repo_root, BASE_DIR.resolve()):
+        try:
+            return str(p.relative_to(root))
+        except Exception:
+            continue
+    return str(p)
+
+
+def _build_detect_payload(
+    repo: str,
+    op: str,
+    category: str,
+    op_name: str,
+    result_root: Path,
+    duration: float,
+    returncode: int,
+    stdout_tail: str = "",
+    stderr_tail: str = "",
+) -> Dict[str, Any]:
+    report_path = result_root / category / op_name / "report.json"
+    report = _load_json(report_path) or {}
+    decisions = report.get("decisions", []) if isinstance(report, dict) else []
+
+    findings: List[Dict[str, Any]] = []
+    workspace: Dict[str, Any] = {}
+
+    for dec in decisions:
+        if dec.get("label") != "real":
+            continue
+        path = dec.get("file", "")
+        exported_to = dec.get("exported_to")
+        meta_path = Path(exported_to).parent / "meta.json" if exported_to else None
+        meta = _load_json(meta_path) if meta_path and meta_path.exists() else {}
+        functions = meta.get("functions", []) if isinstance(meta, dict) else []
+        findings.append(
+            {
+                "path": _rel_path_for_ui(path, repo),
+                "functions": functions,
+                "mode": meta.get("mode") if isinstance(meta, dict) else None,
+                "summary": dec.get("explanation", ""),
+                "evidence": dec.get("evidence", []),
+            }
+        )
+
+        if exported_to and "initial_program" not in workspace:
+            workspace["initial_program"] = {
+                "path": _rel_path_for_ui(exported_to, repo),
+                "functions": functions,
+                "mode": meta.get("mode") if isinstance(meta, dict) else None,
+            }
+
+    detected_latest = _latest_detection_output(category, op_name)
+    if detected_latest and detected_latest.get("tiling_file"):
+        workspace["marked_original"] = {
+            "path": _rel_path_for_ui(str(detected_latest["tiling_file"]), repo),
+        }
+    if detected_latest and detected_latest.get("initial_program") and "initial_program" not in workspace:
+        workspace["initial_program"] = {
+            "path": _rel_path_for_ui(str(detected_latest["initial_program"]), repo),
+            "functions": [],
+            "mode": None,
+        }
+
+    ut_path = _ut_output_path(category, op_name)
+    if ut_path.exists():
+        workspace["ut_script"] = {
+            "path": _rel_path_for_ui(str(ut_path), repo),
+        }
+
+    note = f"detect-LLM 完成: 找到 {len(findings)} 个可优化文件" if returncode == 0 else ""
+    if returncode != 0:
+        note = f"detect-LLM 运行异常 (exit {returncode})"
+
+    return {
+        "repo": repo,
+        "op": op,
+        "category": category,
+        "op_name": op_name,
+        "findings": findings,
+        "note": note,
+        "result_root": str(result_root),
+        "workspace": workspace,
+        "report_path": str(report_path),
+        "duration_sec": round(duration, 3),
+        "stdout": stdout_tail,
+        "stderr": stderr_tail,
+    }
+
+
+def _is_under_root(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except Exception:
+        return False
+
+
+def _find_best_program_file(ckpt_dir: Path) -> Optional[Path]:
+    for name in ("best_program.cpp", "best_program.cc", "best_program.c", "best_program.py"):
+        candidate = ckpt_dir / name
+        if candidate.exists() and candidate.is_file():
+            return candidate
+    matches = sorted(ckpt_dir.glob("best_program.*"))
+    for match in matches:
+        if match.is_file():
+            return match
+    return None
+
+
 def _scan_checkpoints(output_dir: Path, seen: set[int]) -> List[Dict[str, Any]]:
     ckpt_dir = output_dir / "checkpoints"
     if not ckpt_dir.exists():
@@ -356,18 +485,19 @@ def _scan_checkpoints(output_dir: Path, seen: set[int]) -> List[Dict[str, Any]]:
             continue
         meta = _load_json(p / "metadata.json") or {}
         best_info = _load_json(p / "best_program_info.json") or {}
-        score = (best_info.get("metrics") or {}).get("combined_score")
-        latency_ms = throughput = None
-        if score and score > 0:
-            duration_sec = 10.0 / float(score)
-            latency_ms = duration_sec * 1000
-            throughput = 1.0 / duration_sec
+        metrics = best_info.get("metrics") or {}
+        score = metrics.get("combined_score")
+        avg_us = metrics.get("avg_us")
+        if avg_us is None and score:
+            try:
+                avg_us = 10.0 / float(score)
+            except Exception:
+                avg_us = None
         events.append(
             {
                 "index": meta.get("last_iteration", idx),
                 "variant": f"checkpoint_{idx}",
-                "latency_ms": round(latency_ms, 4) if latency_ms is not None else None,
-                "throughput": round(throughput, 4) if throughput is not None else None,
+                "avg_us": round(avg_us, 4) if avg_us is not None else None,
                 "notes": f"combined_score={score}" if score is not None else "no score yet",
                 "path": str(p),
             }
@@ -376,12 +506,60 @@ def _scan_checkpoints(output_dir: Path, seen: set[int]) -> List[Dict[str, Any]]:
     return events
 
 
+def _drain_log_lines(log_file: Path, pos: int, buffer: str, max_bytes: int = 40000) -> Tuple[int, str, List[str]]:
+    if not log_file.exists():
+        return pos, buffer, []
+    try:
+        with log_file.open("r", encoding="utf-8", errors="ignore") as f:
+            f.seek(pos)
+            data = f.read(max_bytes)
+            if not data:
+                return pos, buffer, []
+            pos += len(data)
+    except OSError:
+        return pos, buffer, []
+
+    text = buffer + data
+    lines = text.splitlines()
+    if text and not text.endswith(("\n", "\r")):
+        buffer = lines.pop() if lines else text
+    else:
+        buffer = ""
+    return pos, buffer, lines
+
+
 def _latest_checkpoint(output_dir: Path) -> Optional[Path]:
     ckpt_dir = output_dir / "checkpoints"
     if not ckpt_dir.exists():
         return None
     ckpts = sorted(ckpt_dir.glob("checkpoint_*"), key=lambda p: p.name)
     return ckpts[-1] if ckpts else None
+
+
+def _has_any_checkpoint(output_dir: Path) -> bool:
+    ckpt_dir = output_dir / "checkpoints"
+    if not ckpt_dir.exists():
+        return False
+    return any(ckpt_dir.glob("checkpoint_*"))
+
+
+def _best_avg_us(ckpt_dir: Path) -> Optional[float]:
+    best_info = _load_json(ckpt_dir / "best_program_info.json") or {}
+    metrics = best_info.get("metrics") or {}
+    avg_us = metrics.get("avg_us")
+    if avg_us is not None:
+        try:
+            return round(float(avg_us), 4)
+        except Exception:
+            return None
+    score = metrics.get("combined_score")
+    if not score:
+        return None
+    try:
+        avg_us = 10.0 / float(score)
+        return round(avg_us, 4)
+    except Exception:
+        return None
 
 
 @app.get("/api/operator/detail")
@@ -410,15 +588,26 @@ async def generate_ut(request: UTRequest) -> JSONResponse:
     _resolve_op(request.repo, request.op)
     category, op_name = _parse_category_op(request.op, request.repo)
 
+    logger.info(
+        "ut-LLM request repo=%s op=%s shape=%s dtype=%s category=%s",
+        request.repo,
+        request.op,
+        request.shape,
+        request.dtype,
+        category,
+    )
+
     try:
         out_path, mode_used = await asyncio.to_thread(
             _write_ut_file, request.op, request.shape, request.dtype, -1, category
         )
         script = out_path.read_text(encoding="utf-8")
         note = f"ut-LLM generated via {mode_used}. Saved to {out_path}"
+        logger.info("ut-LLM generated file=%s mode=%s", out_path, mode_used)
     except Exception as exc:  # pragma: no cover
         script = ""
         note = f"生成失败: {exc}"
+        logger.exception("ut-LLM generation failed repo=%s op=%s", request.repo, request.op)
 
     return JSONResponse(
         {
@@ -438,7 +627,6 @@ async def detect_llm(request: DetectRequest) -> JSONResponse:
     detail = _resolve_op(request.repo, request.op)
     category, op_name = _parse_category_op(request.op, request.repo)
 
-    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
     # detector script will append category/op/timestamp under this root
     result_root = DETECT_RESULT_ROOT
     result_root.mkdir(parents=True, exist_ok=True)
@@ -455,6 +643,15 @@ async def detect_llm(request: DetectRequest) -> JSONResponse:
         "--write-report",
     ]
 
+    start_ts = datetime.utcnow()
+    logger.info(
+        "detect-LLM start repo=%s op=%s category=%s cmd=\"%s\"",
+        request.repo,
+        request.op,
+        category,
+        " ".join(cmd),
+    )
+
     try:
         completed = await asyncio.to_thread(
             subprocess.run,
@@ -464,52 +661,237 @@ async def detect_llm(request: DetectRequest) -> JSONResponse:
             text=True,
             check=False,
             timeout=900,
+            env={**os.environ, "PYTHONUNBUFFERED": "1"},
         )
     except subprocess.TimeoutExpired as exc:
+        logger.error("detect-LLM timeout repo=%s op=%s after 900s", request.repo, request.op)
         raise HTTPException(status_code=504, detail=f"detect-LLM timeout: {exc}")
 
-    report_path = result_root / category / op_name / "report.json"
-    report = _load_json(report_path) or {}
-    decisions = report.get("decisions", []) if isinstance(report, dict) else []
+    duration = (datetime.utcnow() - start_ts).total_seconds()
+    stdout_tail = (completed.stdout or "")[-4000:]
+    stderr_tail = (completed.stderr or "")[-4000:]
 
-    findings: List[Dict[str, Any]] = []
-    for dec in decisions:
-        if dec.get("label") != "real":
-            continue
-        path = dec.get("file", "")
-        excerpt = _read_first(Path(path)) if path else ""
-        findings.append(
-            {
-                "path": path,
-                "summary": dec.get("explanation", ""),
-                "evidence": dec.get("evidence", []),
-                "excerpt": excerpt,
-            }
-        )
-
-    note = "detect-LLM 完成"
-    if completed.returncode != 0:
-        note = f"detect-LLM 运行异常 (exit {completed.returncode})"
-
-    return JSONResponse(
-        {
-            "repo": request.repo,
-            "op": request.op,
-            "category": category,
-            "op_name": op_name,
-            "findings": findings,
-            "note": note,
-            "result_root": str(result_root),
-            "stdout": completed.stdout[-4000:] if completed.stdout else "",
-            "stderr": completed.stderr[-4000:] if completed.stderr else "",
-        }
+    payload = _build_detect_payload(
+        request.repo,
+        request.op,
+        category,
+        op_name,
+        result_root,
+        duration,
+        completed.returncode,
+        stdout_tail,
+        stderr_tail,
     )
+
+    logger.info(
+        "detect-LLM done repo=%s op=%s exit=%s findings=%d duration=%.1fs report=%s",
+        request.repo,
+        request.op,
+        completed.returncode,
+        len(payload.get("findings", [])),
+        duration,
+        payload.get("report_path"),
+    )
+    if stderr_tail:
+        logger.warning("detect-LLM stderr (tail):\n%s", stderr_tail)
+    elif stdout_tail:
+        logger.info("detect-LLM stdout (tail):\n%s", stdout_tail)
+
+    return JSONResponse(payload)
+
+
+@app.get("/api/detect-llm/stream")
+async def detect_llm_stream(repo: str = Query(...), op: str = Query(...)) -> StreamingResponse:
+    detail = _resolve_op(repo, op)
+    category, op_name = _parse_category_op(op, repo)
+
+    result_root = DETECT_RESULT_ROOT
+    result_root.mkdir(parents=True, exist_ok=True)
+
+    cmd = [
+        "python3",
+        str(DETECT_SCRIPT),
+        "--base",
+        str(detail.abs_path),
+        "--repo-root",
+        str(OPS_ROOT / repo),
+        "--result-root",
+        str(result_root),
+        "--write-report",
+    ]
+
+    start_ts = datetime.utcnow()
+    logger.info(
+        "detect-LLM stream start repo=%s op=%s category=%s cmd=\"%s\"",
+        repo,
+        op,
+        category,
+        " ".join(cmd),
+    )
+
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        env={**os.environ, "PYTHONUNBUFFERED": "1"},
+    )
+
+    queue: asyncio.Queue = asyncio.Queue()
+    stdout_tail = ""
+    stderr_tail = ""
+
+    def _append_tail(current: str, text: str, limit: int = 4000) -> str:
+        combined = f"{current}{text}\n"
+        if len(combined) > limit:
+            return combined[-limit:]
+        return combined
+
+    async def _read_stream(stream: Optional[asyncio.StreamReader], name: str) -> None:
+        nonlocal stdout_tail, stderr_tail
+        if stream is None:
+            return
+        while True:
+            line = await stream.readline()
+            if not line:
+                break
+            text = line.decode(errors="ignore").rstrip("\n")
+            if name == "stdout":
+                stdout_tail = _append_tail(stdout_tail, text)
+            else:
+                stderr_tail = _append_tail(stderr_tail, text)
+            await queue.put({"type": "log", "stream": name, "message": text})
+
+    async def event_stream() -> Iterable[str]:
+        read_tasks = [
+            asyncio.create_task(_read_stream(process.stdout, "stdout")),
+            asyncio.create_task(_read_stream(process.stderr, "stderr")),
+        ]
+        process_task = asyncio.create_task(process.wait())
+        timeout_task = asyncio.create_task(asyncio.sleep(900))
+        try:
+            while True:
+                if timeout_task.done() and not process_task.done():
+                    process.kill()
+                    await process.wait()
+                    yield f"data: {json.dumps({'type': 'log', 'stream': 'stderr', 'message': 'detect-LLM 超时，已中止。'}, ensure_ascii=False)}\n\n"
+                    break
+                try:
+                    item = await asyncio.wait_for(queue.get(), timeout=0.5)
+                    yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+                    continue
+                except asyncio.TimeoutError:
+                    pass
+                if process_task.done() and queue.empty():
+                    break
+
+            await asyncio.gather(*read_tasks, return_exceptions=True)
+            while not queue.empty():
+                item = queue.get_nowait()
+                yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+
+            duration = (datetime.utcnow() - start_ts).total_seconds()
+            returncode = process.returncode if process.returncode is not None else 1
+            payload = _build_detect_payload(
+                repo,
+                op,
+                category,
+                op_name,
+                result_root,
+                duration,
+                returncode,
+                stdout_tail,
+                stderr_tail,
+            )
+            logger.info(
+                "detect-LLM stream done repo=%s op=%s exit=%s findings=%d duration=%.1fs",
+                repo,
+                op,
+                returncode,
+                len(payload.get("findings", [])),
+                duration,
+            )
+            yield f"data: {json.dumps({'type': 'complete', 'data': payload}, ensure_ascii=False)}\n\n"
+        finally:
+            for task in read_tasks:
+                task.cancel()
+            process_task.cancel()
+            timeout_task.cancel()
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@app.get("/api/workspace/file")
+async def workspace_file(path: str = Query(...), repo: Optional[str] = Query(None)) -> JSONResponse:
+    raw_path = Path(path)
+    if raw_path.is_absolute():
+        resolved = raw_path.resolve()
+    else:
+        resolved = (BASE_DIR / raw_path).resolve()
+        if repo:
+            candidate = (OPS_ROOT / repo / raw_path).resolve()
+            if candidate.exists():
+                resolved = candidate
+    allowed_roots = [
+        BASE_DIR.resolve(),
+        OPS_ROOT.resolve(),
+        DETECT_RESULT_ROOT.resolve(),
+        OPTIM_ROOT.resolve(),
+        UT_OUTPUT_DIR.resolve(),
+        OPENEVOLVE_ROOT.resolve(),
+    ]
+    if not any(_is_under_root(resolved, root) for root in allowed_roots):
+        raise HTTPException(status_code=403, detail="Path not allowed")
+    if not resolved.exists() or not resolved.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    content = resolved.read_text(encoding="utf-8", errors="ignore")
+    return JSONResponse({"path": str(resolved), "content": content})
+
+
+@app.get("/api/checkpoint/diff")
+async def checkpoint_diff(checkpoint_a: str = Query(...), checkpoint_b: str = Query(...)) -> JSONResponse:
+    def _resolve_ckpt(raw: str) -> Path:
+        resolved = Path(raw).expanduser().resolve()
+        if not _is_under_root(resolved, OPTIM_ROOT):
+            raise HTTPException(status_code=403, detail="Path not allowed")
+        if not resolved.exists() or not resolved.is_dir():
+            raise HTTPException(status_code=404, detail="Checkpoint not found")
+        return resolved
+
+    ckpt_a = _resolve_ckpt(checkpoint_a)
+    ckpt_b = _resolve_ckpt(checkpoint_b)
+
+    file_a = _find_best_program_file(ckpt_a)
+    file_b = _find_best_program_file(ckpt_b)
+    if not file_a or not file_b:
+        raise HTTPException(status_code=404, detail="best_program file not found")
+
+    text_a = file_a.read_text(encoding="utf-8", errors="ignore").splitlines()
+    text_b = file_b.read_text(encoding="utf-8", errors="ignore").splitlines()
+    diff_lines = difflib.unified_diff(
+        text_a,
+        text_b,
+        fromfile=str(file_a),
+        tofile=str(file_b),
+        lineterm="",
+    )
+    diff_text = "\n".join(diff_lines) or "No differences."
+    return JSONResponse({"diff": diff_text})
 
 
 @app.post("/api/openevolve/start")
 async def openevolve_start(request: EvolveRequest) -> JSONResponse:
     detail = _resolve_op(request.repo, request.op)
     category, op_name = _parse_category_op(request.op, request.repo)
+
+    logger.info(
+        "OpenEvolve start repo=%s op=%s shape=%s dtype=%s platform=%s category=%s",
+        request.repo,
+        request.op,
+        request.shape,
+        request.dtype,
+        request.platform,
+        category,
+    )
 
     # Prepare UT file
     ut_path, _ = await asyncio.to_thread(
@@ -520,6 +902,7 @@ async def openevolve_start(request: EvolveRequest) -> JSONResponse:
     tiling_file = _find_tiling_file(detail.abs_path)
     initial_program = _choose_initial_program(detail, category, op_name)
 
+    run_id = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
     cmd = [
         "python3",
         str(OPENEVOLVE_ROOT / "start_optimization.py"),
@@ -532,31 +915,46 @@ async def openevolve_start(request: EvolveRequest) -> JSONResponse:
         str(tiling_file),
         "--test-file",
         str(ut_path),
+        "--run-id",
+        run_id,
         "--iterations",
         "30",
     ]
+
+    test_name = ut_path.stem
+    output_dir = OPENEVOLVE_ROOT / category / op_name / f"{test_name}_{run_id}"
 
     log_dir = OPTIM_ROOT / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / f"openevolve_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.log"
 
+    logger.info(
+        "OpenEvolve launching run_id=%s output_dir=%s cmd=\"%s\" log_file=%s",
+        run_id,
+        output_dir,
+        " ".join(cmd),
+        log_file,
+    )
+
     process = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
+        env={**os.environ, "PYTHONUNBUFFERED": "1"},
     )
 
     session_id = uuid.uuid4().hex
-    test_name = ut_path.stem
-    output_dir = OPENEVOLVE_ROOT / category / op_name / test_name
-
     _sessions[session_id] = {
         "request": request.dict(),
         "process": process,
         "log_file": str(log_file),
         "output_dir": output_dir,
+        "run_id": run_id,
         "seen": set(),
         "started_at": datetime.utcnow().isoformat(),
+        "log_pos": 0,
+        "log_buf": "",
+        "initial_emitted": False,
     }
 
     async def _pipe_to_file():
@@ -564,12 +962,25 @@ async def openevolve_start(request: EvolveRequest) -> JSONResponse:
             return
         with log_file.open("w", encoding="utf-8") as f:
             async for chunk in process.stdout:
-                f.write(chunk.decode(errors="ignore"))
+                text = chunk.decode(errors="ignore")
+                f.write(text)
                 f.flush()
+                for line in text.splitlines():
+                    if line:
+                        logger.info("[OpenEvolve:%s] %s", run_id, line)
+        returncode = process.returncode
+        logger.info("OpenEvolve process stdout piping ended log_file=%s exit=%s", log_file, returncode)
 
     asyncio.create_task(_pipe_to_file())
 
-    return JSONResponse({"session_id": session_id, "log": str(log_file), "output_dir": str(output_dir)})
+    return JSONResponse(
+        {
+            "session_id": session_id,
+            "log": str(log_file),
+            "output_dir": str(output_dir),
+            "run_id": run_id,
+        }
+    )
 
 
 @app.get("/api/openevolve/stream")
@@ -581,9 +992,27 @@ async def openevolve_stream(session_id: str = Query(...)) -> StreamingResponse:
     output_dir: Path = Path(session["output_dir"])
     seen: set[int] = session.get("seen", set())
     process: asyncio.subprocess.Process = session.get("process")
+    log_file = session.get("log_file")
+    run_id = session.get("run_id")
+    log_pos = session.get("log_pos", 0)
+    log_buf = session.get("log_buf", "")
+    log_path = Path(log_file) if log_file else None
+    initial_emitted = session.get("initial_emitted", False)
 
     async def event_stream() -> Iterable[str]:
+        nonlocal log_pos, log_buf, initial_emitted
         while True:
+            if log_path:
+                log_pos, log_buf, lines = _drain_log_lines(log_path, log_pos, log_buf)
+                session["log_pos"] = log_pos
+                session["log_buf"] = log_buf
+                for line in lines:
+                    if (not initial_emitted) and ("END eval" in line) and (not _has_any_checkpoint(output_dir)):
+                        initial_emitted = True
+                        session["initial_emitted"] = True
+                        yield f"data: {json.dumps({'type': 'initial_eval', 'data': {'label': 'Initial evaluation (no replace)'}}, ensure_ascii=False)}\n\n"
+                    yield f"data: {json.dumps({'type': 'log', 'data': {'message': line}}, ensure_ascii=False)}\n\n"
+
             # emit new checkpoints if any
             for evt in _scan_checkpoints(output_dir, seen):
                 yield f"data: {json.dumps({'type': 'iteration', 'data': evt})}\n\n"
@@ -597,12 +1026,38 @@ async def openevolve_stream(session_id: str = Query(...)) -> StreamingResponse:
                 continue
 
             if done or (not process):
+                exit_code = process.returncode if process is not None else None
+                if log_path:
+                    log_pos, log_buf, lines = _drain_log_lines(log_path, log_pos, log_buf)
+                    session["log_pos"] = log_pos
+                    session["log_buf"] = log_buf
+                    for line in lines:
+                        if (not initial_emitted) and ("END eval" in line) and (not _has_any_checkpoint(output_dir)):
+                            initial_emitted = True
+                            session["initial_emitted"] = True
+                            yield f"data: {json.dumps({'type': 'initial_eval', 'data': {'label': 'Initial evaluation (no replace)'}}, ensure_ascii=False)}\n\n"
+                        yield f"data: {json.dumps({'type': 'log', 'data': {'message': line}}, ensure_ascii=False)}\n\n"
+                for evt in _scan_checkpoints(output_dir, seen):
+                    yield f"data: {json.dumps({'type': 'iteration', 'data': evt})}\n\n"
                 best_ckpt = _latest_checkpoint(output_dir)
+                best_avg_us = _best_avg_us(best_ckpt) if best_ckpt else None
                 summary = {
                     "best_variant": best_ckpt.name if best_ckpt else None,
-                    "best_latency_ms": None,
+                    "best_avg_us": best_avg_us,
+                    "best_latency_ms": round(best_avg_us / 1000.0, 4) if best_avg_us is not None else None,
                     "total_iterations": len(seen),
+                    "status": "success" if exit_code in (0, None) else "failed",
+                    "exit_code": exit_code,
+                    "log_file": log_file,
+                    "run_id": run_id,
+                    "output_dir": str(output_dir),
                 }
+                logger.info(
+                    "OpenEvolve stream complete session=%s best_variant=%s total_iterations=%d",
+                    session_id,
+                    summary["best_variant"],
+                    summary["total_iterations"],
+                )
                 yield f"data: {json.dumps({'type': 'complete', 'data': summary})}\n\n"
                 break
 
@@ -614,6 +1069,42 @@ async def openevolve_stream(session_id: str = Query(...)) -> StreamingResponse:
 @app.post("/api/package")
 async def download_package(request: PackageRequest) -> StreamingResponse:
     detail = _resolve_op(request.repo, request.op)
+
+    logger.info(
+        "package request repo=%s op=%s include_generated=%s",
+        request.repo,
+        request.op,
+        request.include_generated,
+    )
+
+    def _resolve_checkpoint_dir() -> Optional[Path]:
+        candidates: List[Path] = []
+        if request.best_checkpoint:
+            candidates.append(Path(request.best_checkpoint))
+        if request.output_dir and request.best_variant:
+            candidates.append(Path(request.output_dir) / "checkpoints" / request.best_variant)
+        for candidate in candidates:
+            try:
+                resolved = candidate.expanduser().resolve()
+            except Exception:
+                continue
+            if not _is_under_root(resolved, OPTIM_ROOT):
+                continue
+            if resolved.exists() and resolved.is_dir():
+                return resolved
+        return None
+
+    best_ckpt_dir = _resolve_checkpoint_dir()
+    best_program_path: Optional[Path] = None
+    best_info_path: Optional[Path] = None
+    if best_ckpt_dir:
+        for candidate in best_ckpt_dir.glob("best_program.*"):
+            if candidate.is_file():
+                best_program_path = candidate
+                break
+        info_candidate = best_ckpt_dir / "best_program_info.json"
+        if info_candidate.exists():
+            best_info_path = info_candidate
 
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
@@ -642,10 +1133,26 @@ async def download_package(request: PackageRequest) -> StreamingResponse:
                 "files": [],
             }
             zipf.writestr(str(gen_dir / "detect_report.json"), json.dumps(detect_report, indent=2))
+            if best_program_path:
+                zipf.write(best_program_path, arcname=str(gen_dir / best_program_path.name))
+            if best_info_path:
+                zipf.write(best_info_path, arcname=str(gen_dir / best_info_path.name))
+            if best_ckpt_dir:
+                meta_payload = {
+                    "checkpoint_dir": str(best_ckpt_dir),
+                    "best_variant": request.best_variant or best_ckpt_dir.name,
+                    "output_dir": request.output_dir,
+                }
+                zipf.writestr(str(gen_dir / "best_checkpoint.json"), json.dumps(meta_payload, indent=2))
 
     zip_buffer.seek(0)
 
-    filename = f"{detail.repo}_{detail.op.replace('/', '_')}_package.zip"
+    suffix = "package"
+    if best_ckpt_dir:
+        suffix = f"best_{best_ckpt_dir.name}"
+    filename = f"{detail.repo}_{detail.op.replace('/', '_')}_{suffix}.zip"
     headers = {"Content-Disposition": f"attachment; filename={filename}"}
+
+    logger.info("package built filename=%s size=%d bytes", filename, len(zip_buffer.getbuffer()))
 
     return StreamingResponse(zip_buffer, headers=headers, media_type="application/zip")

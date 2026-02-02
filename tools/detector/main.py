@@ -545,7 +545,8 @@ def main():
         LOGGER.error("Failed to resolve operator: %s", e)
         return
 
-    LOGGER.info("Operator base: %s (category=%s opname=%s)", op_base, category, opname)
+    # LOGGER.info("Operator base: %s (category=%s opname=%s)", op_base, category, opname)
+    LOGGER.info("Operator: category=%s opname=%s", category, opname)
 
     op_host = op_base / "op_host"
     if not op_host.exists():

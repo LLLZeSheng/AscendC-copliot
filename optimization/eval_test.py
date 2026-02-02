@@ -41,10 +41,12 @@ def evaluate(
             if not os.path.exists(file_name):
                 raise FileNotFoundError(f"target file (file_name) not found: {file_name}")
 
+            print("STEP_START: REPLACE")
             replaced_code = replace.replace(
                 target_file_path=file_name,
                 file_generated_path=program_path,
             )
+            print("STEP_OK: REPLACE")
 
             if replaced_code is None:
                 with open(program_path, "r", encoding="utf-8") as f:
@@ -63,11 +65,11 @@ def evaluate(
 
         duration = float(duration)
         if duration <= 0:
-            return {"combined_score": 0}
+            return {"combined_score": 0, "avg_us": 0}
 
-        return {"combined_score": 10.0 / duration}
+        return {"combined_score": 10.0 / duration, "avg_us": duration}
 
     except Exception:
         print("[EVAL ERROR] evaluate() failed:")
         traceback.print_exc()
-        return {"combined_score": 0}
+        return {"combined_score": 0, "avg_us": 0}

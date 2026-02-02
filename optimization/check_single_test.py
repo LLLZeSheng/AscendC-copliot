@@ -24,10 +24,13 @@ import csv
 import logging
 import re
 import shutil
+import select
 import subprocess
+import time
 import uuid
 from pathlib import Path
 from typing import Dict, Optional, Union
+import shlex
 
 
 # ----------------- logging -----------------
@@ -168,35 +171,70 @@ def _clean_build_artifacts(tmp_ops_root: Path) -> None:
 
 def _run_cmd(cmd, cwd: Path, timeout: Optional[int] = None) -> subprocess.CompletedProcess:
     logger.info(f"Run cmd:\n  cwd: {cwd}\n  cmd: {' '.join(map(str, cmd))}")
-    completed = subprocess.run(
+    process = subprocess.Popen(
         cmd,
         cwd=str(cwd),
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         text=True,
-        timeout=timeout,
-        check=False,
+        bufsize=1,
     )
-    logger.info(f"Command return code: {completed.returncode}")
-    if completed.stdout:
-        logger.info(f"--- STDOUT (head) ---\n{completed.stdout[:2000]}")
-    if completed.stderr:
-        logger.info(f"--- STDERR (head) ---\n{completed.stderr[:2000]}")
+    output_lines = []
+    start_time = time.time()
+    try:
+        assert process.stdout is not None
+        while True:
+            if timeout and (time.time() - start_time) > timeout:
+                raise subprocess.TimeoutExpired(cmd, timeout)
+            ready, _, _ = select.select([process.stdout], [], [], 0.2)
+            if ready:
+                line = process.stdout.readline()
+                if line == "":
+                    break
+                line = line.rstrip("\n")
+                if line:
+                    logger.info(line)
+                output_lines.append(line)
+                continue
+            if process.poll() is not None:
+                break
+        returncode = process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+        raise EvalError(
+            "Command timeout:\n"
+            f"  cmd: {cmd}\n"
+            f"  cwd: {cwd}\n"
+            f"  timeout: {timeout}s\n"
+        )
 
-    if completed.returncode != 0:
+    stdout = "\n".join(output_lines)
+    logger.info(f"Command return code: {returncode}")
+    if returncode != 0:
         raise EvalError(
             "Command failed:\n"
             f"  cmd: {cmd}\n"
             f"  cwd: {cwd}\n"
-            f"  returncode: {completed.returncode}\n"
-            f"--- STDOUT ---\n{completed.stdout}\n"
-            f"--- STDERR ---\n{completed.stderr}\n"
+            f"  returncode: {returncode}\n"
+            f"--- STDOUT/STDERR ---\n{stdout}\n"
         )
-    return completed
+    return subprocess.CompletedProcess(cmd, returncode, stdout, "")
 
 
 def _build_operator(tmp_ops_root: Path, op_name: str, timeout: Optional[int]) -> None:
-    cmd = ["bash", "build.sh", "--pkg", "--soc=ascend910b", f"--ops={op_name}", f"--vendor_name={op_name}"]
+    build_cmd = " ".join(
+        [
+            "bash",
+            "build.sh",
+            "--pkg",
+            "--soc=ascend910b",
+            f"--ops={op_name}",
+            f"--vendor_name={op_name}",
+        ]
+    )
+    cmd = ["bash", "-lc", f"source /usr/local/Ascend/cann/set_env.sh && {build_cmd}"]
+    logger.info("STEP_START: BUILD")
     logger.info(f"Building operator '{op_name}' ...")
     _run_cmd(cmd, cwd=tmp_ops_root, timeout=timeout)
     logger.info("Build finished.")
@@ -215,12 +253,15 @@ def _find_installer(build_out_dir: Path, op_name: str) -> Path:
 
 def _install_operator(tmp_ops_root: Path, op_name: str, timeout: Optional[int]) -> None:
     build_out_dir = tmp_ops_root / "build_out"
+    logger.info("STEP_START: INSTALL")
     logger.info(f"Installing operator '{op_name}' from build_out: {build_out_dir}")
     if not build_out_dir.exists():
         raise FileNotFoundError(f"build_out directory not found after build: {build_out_dir}")
 
     installer = _find_installer(build_out_dir, op_name)
-    _run_cmd(["bash", str(installer)], cwd=build_out_dir, timeout=timeout)
+    logger.info("Running: unset ASCEND_CUSTOM_OPP_PATH (before install)")
+    install_cmd = f"unset ASCEND_CUSTOM_OPP_PATH && bash {shlex.quote(str(installer))}"
+    _run_cmd(["bash", "-lc", install_cmd], cwd=build_out_dir, timeout=timeout)
     logger.info("Install finished.")
 
 
@@ -240,6 +281,7 @@ def _stage_python_code(tmp_ops_root: Path, python_code_path: Union[str, Path]) -
 
 
 def _run_python_once(python_file: Path, timeout: Optional[int]) -> None:
+    logger.info("STEP_START: RUN")
     logger.info(f"Running python once (asserts must pass): {python_file}")
     _run_cmd(["python3", python_file.name], cwd=python_file.parent, timeout=timeout)
     logger.info("Python run OK.")
@@ -248,8 +290,10 @@ def _run_python_once(python_file: Path, timeout: Optional[int]) -> None:
 def _run_msprof(python_file: Path, timeout: Optional[int]) -> subprocess.CompletedProcess:
     if not MSPROF_BIN.exists():
         raise FileNotFoundError(f"msprof not found at: {MSPROF_BIN}")
+    logger.info("STEP_START: PROFILE")
     logger.info(f"Profiling with msprof: {python_file}")
-    return _run_cmd([str(MSPROF_BIN), "python3", python_file.name], cwd=python_file.parent, timeout=timeout)
+    # return _run_cmd([str(MSPROF_BIN), "python3", python_file.name], cwd=python_file.parent, timeout=timeout)
+    return _run_cmd(["msprof", "python3", python_file.name], cwd=python_file.parent, timeout=timeout)
 
 
 def _parse_msprof_saved_dir(stdout: str, stderr: str) -> Path:
@@ -390,13 +434,17 @@ def eval(
 
     # 6) build + install operator
     _build_operator(tmp_ops_root, op_name, timeout=timeout)
+    logger.info("STEP_OK: BUILD")
     _install_operator(tmp_ops_root, op_name, timeout=timeout)
+    logger.info("STEP_OK: INSTALL")
 
     # 7) run python once (asserts must pass)
     _run_python_once(python_file, timeout=timeout)
+    logger.info("STEP_OK: RUN")
 
     # 8) profile the python run
     prof = _run_msprof(python_file, timeout=timeout)
+    logger.info("STEP_OK: PROFILE")
 
     # 9) parse saved dir from msprof logs
     saved_dir = _parse_msprof_saved_dir(prof.stdout, prof.stderr)

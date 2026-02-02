@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AscendC Copilot · 算子优化任务台</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@300;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles.css" />
-</head>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AscendC Copilot · 算子优化任务台</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@300;500;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/vendor/github-dark.min.css">
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
 <body>
   <div class="bg-orbit"></div>
   <div class="bg-grid"></div>
@@ -23,54 +24,45 @@
         </div>
       </div>
 
+      <div class="panel panel-collapsible" id="repoPanel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">仓库与算子</div>
+            <div class="panel-sub" id="repoPanelSummary">尚未选择</div>
+          </div>
+          <button class="panel-toggle" id="repoCollapseBtn" type="button">折叠</button>
+        </div>
+        <div class="panel-content">
+          <div class="field">
+            <label>仓库</label>
+            <select id="repoSelect"></select>
+          </div>
+          <div class="field">
+            <label>算子搜索</label>
+            <input id="opSearch" placeholder="例如 activation/swi_glu" />
+          </div>
+          <div class="op-list" id="opList"></div>
+        </div>
+      </div>
+
       <div class="panel">
-        <div class="panel-title">仓库与算子</div>
-        <div class="field">
-          <label>仓库</label>
-          <select id="repoSelect"></select>
-        </div>
-        <div class="field">
-          <label>算子搜索</label>
-          <input id="opSearch" placeholder="例如 activation/swi_glu" />
-        </div>
-        <div class="op-list" id="opList"></div>
-      </div>
-
-      <div class="panel meta">
-        <div class="panel-title">当前选择</div>
-        <div class="meta-row">
-          <span>仓库</span>
-          <strong id="metaRepo">-</strong>
-        </div>
-        <div class="meta-row">
-          <span>算子</span>
-          <strong id="metaOp">-</strong>
-        </div>
-      </div>
-
-      <div class="footer">
-        <div class="status-dot"></div>
-        <span>FastAPI Local</span>
-      </div>
-    </aside>
-
-    <main class="main">
-      <header class="hero">
-        <div>
-          <h1>算子性能优化全流程</h1>
-          <p>从算子定位、测试用例生成、优化点检测，到 OpenEvolve 迭代，整合在一张工作台里。</p>
-        </div>
-        <div class="hero-card">
-          <div class="hero-label">任务状态</div>
-          <div class="hero-value" id="heroStatus">待选择算子</div>
-          <div class="hero-foot">本地仓库 · AscendC 规范</div>
-        </div>
-      </header>
-
-      <section class="grid">
-        <div class="card">
-          <div class="card-title">输入配置</div>
+        <div class="panel-title">输入配置</div>
+        <details class="config-drawer" id="configDrawer">
+          <summary>
+            <span>输入配置</span>
+            <span class="muted">折叠</span>
+          </summary>
           <div class="form-grid">
+            <div class="field">
+              <label>默认 shape</label>
+              <select id="shapePreset">
+                <option value="">选择预置</option>
+                <option value="[1, 1024, 1024]">[1, 1024, 1024]</option>
+                <option value="[8, 4096, 256]">[8, 4096, 256]</option>
+                <option value="[16, 9216, 2560]">[16, 9216, 2560]</option>
+                <option value="[24, 9216, 2560]">[24, 9216, 2560]</option>
+              </select>
+            </div>
             <div class="field">
               <label>输入 shape</label>
               <input id="shapeInput" placeholder="例如: [24, 9216, 2560]" />
@@ -94,29 +86,174 @@
               </select>
             </div>
           </div>
+        </details>
+      </div>
+
+      <div class="panel meta">
+        <div class="panel-title">当前选择</div>
+        <div class="meta-row">
+          <span>仓库</span>
+          <strong id="metaRepo">-</strong>
+        </div>
+        <div class="meta-row">
+          <span>算子</span>
+          <strong id="metaOp">-</strong>
+        </div>
+        <button class="btn ghost small" id="resetSelection">重新选择算子信息</button>
+      </div>
+
+      <div class="footer">
+        <div class="status-dot"></div>
+        <span>FastAPI Local</span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="hero">
+        <div>
+          <h1>AscendC Copilot</h1>
+          <p>基于openevolve的AscendC算子自动优化平台</p>
+        </div>
+        <div class="hero-card">
+          <div class="hero-label">任务状态</div>
+          <div class="hero-value" id="heroStatus">待选择算子</div>
+          <div class="hero-foot">本地仓库 · AscendC 规范</div>
+        </div>
+      </header>
+
+      <section class="control-deck">
+        <div class="card control-panel">
+          <div class="flow-header">
+            <div>
+              <div class="flow-title">任务向导</div>
+              <div class="flow-sub">按步骤推进，需重选算子可使用左侧按钮。</div>
+            </div>
+            <div class="chip-row">
+              <span class="chip">ut-LLM</span>
+              <span class="chip">detect-LLM</span>
+              <span class="chip">OpenEvolve</span>
+            </div>
+          </div>
+          <div class="flow-steps">
+            <div class="step step-card" data-step="detail">
+              <div class="step-left">
+                <div class="step-index">1</div>
+                <div class="step-text">
+                  <div class="step-title">读取算子信息</div>
+                  <div class="step-desc">加载 README 与目录结构。</div>
+                </div>
+              </div>
+              <div class="step-actions">
+                <button class="btn primary" id="loadDetail">加载算子信息</button>
+              </div>
+            </div>
+            <div class="step step-card" data-step="ut">
+              <div class="step-left">
+                <div class="step-index">2</div>
+                <div class="step-text">
+                  <div class="step-title">生成测试用例</div>
+                  <div class="step-desc">生成 UT 与评测脚本。</div>
+                </div>
+              </div>
+              <div class="step-actions">
+                <button class="btn" id="runUt">生成测试用例</button>
+              </div>
+            </div>
+            <div class="step step-card" data-step="detect">
+              <div class="step-left">
+                <div class="step-index">3</div>
+                <div class="step-text">
+                  <div class="step-title">检测优化点</div>
+                  <div class="step-desc">扫描可优化片段并建档。</div>
+                </div>
+              </div>
+              <div class="step-actions">
+                <button class="btn" id="runDetect">检测优化点</button>
+              </div>
+            </div>
+            <div class="step step-card" data-step="evolve">
+              <div class="step-left">
+                <div class="step-index">4</div>
+                <div class="step-text">
+                  <div class="step-title">启动演化</div>
+                  <div class="step-desc">驱动 OpenEvolve 迭代。</div>
+                </div>
+              </div>
+              <div class="step-actions">
+                <button class="btn" id="runEvolve">启动演化</button>
+              </div>
+            </div>
+          </div>
           <div class="action-row">
-            <button class="btn primary" id="loadDetail">加载算子信息</button>
-            <button class="btn ghost" id="downloadPackage">下载代码包</button>
+            <button class="btn ghost" id="downloadPackage">下载当前最优版本算子包</button>
+            <span class="muted tiny">建议完成 OpenEvolve 迭代后下载最优包。</span>
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-title">工作流工具链</div>
-          <div class="chip-row">
-            <span class="chip">ut-LLM</span>
-            <span class="chip">detect-LLM</span>
-            <span class="chip">OpenEvolve</span>
+        <div class="card console-panel">
+          <div class="console-head">
+            <div>
+              <div class="console-title">实时控制台</div>
+            </div>
+            <div class="console-chip" id="consoleStage">待选择算子</div>
           </div>
-          <p class="card-copy">聚焦算子优化任务：生成测试用例、识别优化点并驱动迭代式演化。</p>
-          <div class="action-row">
-            <button class="btn" id="runUt">生成测试用例</button>
-            <button class="btn" id="runDetect">检测优化点</button>
-            <button class="btn" id="runEvolve">启动演化</button>
+          <div class="console-grid">
+            <div class="console-metric">
+              <span>当前仓库</span>
+              <strong id="consoleRepo">-</strong>
+            </div>
+            <div class="console-metric">
+              <span>当前算子</span>
+              <strong id="consoleOp">-</strong>
+            </div>
+            <div class="console-metric">
+              <span>目标平台</span>
+              <strong id="consoleSoc">-</strong>
+            </div>
+            <div class="console-metric">
+              <span>步骤进度</span>
+              <strong id="consoleStep">0 / 4</strong>
+            </div>
           </div>
+          <div class="console-divider"></div>
+          <div class="best-console">
+            <div class="best-head">
+              <div class="console-title">最佳结果</div>
+              <div class="console-chip ghost" id="bestStatusChip">暂无最佳版本</div>
+            </div>
+            <div class="best-card compact">
+              <div class="best-row">
+                <span>最佳版本</span>
+                <strong id="bestVariantLabel">-</strong>
+              </div>
+              <div class="best-row">
+                <span>Checkpoint</span>
+                <strong id="bestCheckpointLabel">-</strong>
+              </div>
+              <div class="best-row">
+                <span>Avg Time(us)</span>
+                <strong id="bestLatencyLabel">-</strong>
+              </div>
+            </div>
+            <details class="best-drawer" id="bestDrawer">
+              <summary>查看最佳 program 与性能</summary>
+              <div class="best-meta" id="bestProgramMeta">等待最佳版本输出。</div>
+              <pre class="code-block"><code id="bestProgramCode" class="language-cpp">等待最佳版本输出…</code></pre>
+            </details>
+          </div>
+          <div class="console-divider"></div>
+          <div class="note">演化过程中的 build / install / run / profile 日志会在 “OpenEvolve 迭代” 标签页实时显示。</div>
         </div>
       </section>
 
       <section class="workspace">
+        <div class="workspace-header">
+          <h2>初始工作区</h2>
+        </div>
+        <div class="workspace-panel">
+          <div id="workspaceFiles" class="workspace-list"></div>
+        </div>
+        <div class="divider"></div>
         <div class="tabs">
           <button class="tab active" data-tab="detail">算子详情</button>
           <button class="tab" data-tab="ut">UT 测试用例</button>
@@ -128,7 +265,7 @@
           <div class="split">
             <div>
               <h3>算子说明</h3>
-              <pre id="detailReadme" class="code-block">请选择算子以查看 README 详情。</pre>
+              <div id="detailReadme" class="markdown">请选择算子以查看 README 详情。</div>
             </div>
             <div>
               <h3>文件列表</h3>
@@ -141,7 +278,7 @@
           <div class="panel-grid">
             <div>
               <h3>生成的测试脚本</h3>
-              <pre id="utScript" class="code-block">等待生成…</pre>
+              <pre class="code-block"><code id="utScript" class="language-python">等待生成…</code></pre>
             </div>
             <div>
               <h3>输出说明</h3>
@@ -159,19 +296,72 @@
             <div>
               <h3>诊断摘要</h3>
               <div class="note" id="detectNote">等待 detect-LLM 运行。</div>
+              <h3>运行日志</h3>
+              <pre id="detectLog" class="code-block">等待日志输出…</pre>
             </div>
           </div>
         </div>
 
         <div class="tab-panel" id="tab-evolve">
-          <div class="panel-grid">
-            <div>
-              <h3>迭代轨迹</h3>
-              <div id="evolveTimeline" class="timeline"></div>
+          <div class="evolve-stack">
+            <div class="evolve-hero">
+              <div class="evolve-hero-header">
+                <div>
+                  <div class="evolve-hero-title">当前迭代</div>
+                  <div class="evolve-hero-iter" id="evolveIterLabel">等待评测...</div>
+                </div>
+                <div class="evolve-hero-stage" id="evolveStageLabel">等待阶段</div>
+              </div>
+              <div class="stage-track full" id="evolveStages">
+                <div class="stage-segment" data-stage="replace">
+                  <span>Replace</span>
+                </div>
+                <div class="stage-segment" data-stage="build">
+                  <span>Build</span>
+                </div>
+                <div class="stage-segment" data-stage="install">
+                  <span>Install</span>
+                </div>
+                <div class="stage-segment" data-stage="run">
+                  <span>Run</span>
+                </div>
+                <div class="stage-segment" data-stage="profile">
+                  <span>Profile</span>
+                </div>
+              </div>
+              <div class="note compact" id="evolveSummary">等待 OpenEvolve 输出。</div>
             </div>
-            <div>
-              <h3>最佳结果</h3>
-              <div class="note" id="evolveSummary">等待 OpenEvolve 输出。</div>
+            <div class="evolve-grid">
+              <div class="evolve-left">
+                <h3>迭代轨迹</h3>
+                <div id="evolveTimeline" class="timeline"></div>
+              </div>
+              <div class="evolve-right">
+                <div class="note" id="diffPlaceholder">迭代结束后可查看 checkpoint diff。</div>
+                <div id="diffSection" class="diff-section" hidden>
+                  <h3>Checkpoint Diff</h3>
+                  <div class="diff-panel">
+                    <div class="field">
+                      <label>Checkpoint A</label>
+                      <select id="diffSelectA"></select>
+                    </div>
+                    <div class="field">
+                      <label>Checkpoint B</label>
+                      <select id="diffSelectB"></select>
+                    </div>
+                    <button class="btn" id="runDiff">查看 Diff</button>
+                  </div>
+                  <pre class="code-block"><code id="diffOutput" class="language-diff">等待选择 checkpoint。</code></pre>
+                </div>
+                <div>
+                  <h3>演化日志</h3>
+                  <details class="log-drawer" id="evolveLogDrawer">
+                    <summary>查看实时日志</summary>
+                    <div class="note" id="evolveLogNote">等待演化任务。</div>
+                    <pre id="evolveLog" class="code-block">等待日志输出…</pre>
+                  </details>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -179,6 +369,8 @@
     </main>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="/static/vendor/highlight.min.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>
