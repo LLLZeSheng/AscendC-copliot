@@ -1365,6 +1365,29 @@ body {
   gap: 12px;
 }
 
+.checkpoint-diff {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: rgba(20, 28, 40, 0.9);
+  display: grid;
+  gap: 12px;
+  box-shadow: var(--shadow);
+}
+
+.checkpoint-diff-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.checkpoint-diff-header h3 {
+  margin: 0;
+}
+
 .stage-block {
   display: grid;
   gap: 10px;

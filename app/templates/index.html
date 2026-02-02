@@ -337,22 +337,6 @@
                 <div id="evolveTimeline" class="timeline"></div>
               </div>
               <div class="evolve-right">
-                <div class="note" id="diffPlaceholder">迭代结束后可查看 checkpoint diff。</div>
-                <div id="diffSection" class="diff-section" hidden>
-                  <h3>Checkpoint Diff</h3>
-                  <div class="diff-panel">
-                    <div class="field">
-                      <label>Checkpoint A</label>
-                      <select id="diffSelectA"></select>
-                    </div>
-                    <div class="field">
-                      <label>Checkpoint B</label>
-                      <select id="diffSelectB"></select>
-                    </div>
-                    <button class="btn" id="runDiff">查看 Diff</button>
-                  </div>
-                  <pre class="code-block"><code id="diffOutput" class="language-diff">等待选择 checkpoint。</code></pre>
-                </div>
                 <div>
                   <h3>演化日志</h3>
                   <details class="log-drawer" id="evolveLogDrawer">
@@ -363,6 +347,31 @@
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="checkpoint-diff">
+          <div class="checkpoint-diff-header">
+            <div>
+              <h3>Checkpoint Diff</h3>
+              <div class="muted tiny">对比不同 checkpoint 的 best_program 输出</div>
+            </div>
+          </div>
+          <div class="note" id="diffPlaceholder">迭代结束后可查看 checkpoint diff。</div>
+          <div id="diffSection" class="diff-section" hidden>
+            <div class="diff-panel">
+              <div class="field">
+                <label>Checkpoint A</label>
+                <select id="diffSelectA"></select>
+              </div>
+              <div class="field">
+                <label>Checkpoint B</label>
+                <select id="diffSelectB"></select>
+              </div>
+              <button class="btn" id="runDiff">查看 Diff</button>
+            </div>
+            <pre class="code-block"><code id="diffOutput" class="language-diff">等待选择 checkpoint。</code></pre>
           </div>
         </div>
       </section>
