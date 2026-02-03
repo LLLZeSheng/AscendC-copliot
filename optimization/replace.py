@@ -1,5 +1,14 @@
 import os
 import re
+import hashlib
+import logging
+
+
+logger = logging.getLogger("eval_operator")
+
+
+def _short_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8", errors="ignore")).hexdigest()[:12]
 
 def replace(target_file_path, file_generated_path):
     """
@@ -11,30 +20,50 @@ def replace(target_file_path, file_generated_path):
     """
     # 1. Read the Target File strictly once
     if not os.path.exists(target_file_path):
-        print(f"Error: Target file '{target_file_path}' not found.")
+        logger.error("REPLACE_ERR: Target file not found: %s", target_file_path)
         return None
 
     try:
         with open(target_file_path, 'r', encoding='utf-8') as f:
             current_content = f.read()
     except Exception as e:
-        print(f"Error reading target file: {e}")
+        logger.error("REPLACE_ERR: Failed to read target file: %s", e)
         return None
 
     # 2. Get the list of replacements
     replacements = read_generated_sol(file_generated_path)
-    
-    print(current_content)
+    target_marker_count = current_content.count("REPLACE_START")
+    logger.info(
+        "REPLACE_BEGIN: target=%s generated=%s target_len=%d target_sha=%s target_markers=%d",
+        target_file_path,
+        file_generated_path,
+        len(current_content),
+        _short_hash(current_content),
+        target_marker_count,
+    )
     if not replacements:
-        print("No replacements found or error reading generated file.")
-        return current_content
+        logger.warning("REPLACE_NO_REPLACEMENTS: generated file had no marker blocks.")
+        return None
 
-    print(f"Found {len(replacements)} replacement(s). Applying...")
+    logger.info("REPLACE_FOUND: %d replacement(s) to apply.", len(replacements))
 
     # 3. Apply updates to the string in memory
+    applied = 0
     for rep_data in replacements:
-        current_content = update_string_with_markers(current_content, rep_data)
-    print(current_content)
+        current_content, did_apply = update_string_with_markers(current_content, rep_data)
+        if did_apply:
+            applied += 1
+
+    if applied == 0:
+        logger.warning("REPLACE_APPLY_NONE: No markers matched in target file.")
+        return None
+
+    logger.info("REPLACE_APPLIED: %d/%d replacements applied.", applied, len(replacements))
+    logger.info(
+        "REPLACE_RESULT: result_len=%d result_sha=%s",
+        len(current_content),
+        _short_hash(current_content),
+    )
     # 4. Return the final modified string
     return current_content
 
@@ -85,7 +114,7 @@ def update_string_with_markers(content, replacement_data):
     new_code = replacement_data.get("code")
 
     if not func_name or new_code is None:
-        return content
+        return content, False
 
     # Define the markers
     start_marker = f"// [[[ REPLACE_START: {func_name} ]]]"
@@ -94,14 +123,14 @@ def update_string_with_markers(content, replacement_data):
     # 1. Find START marker
     start_index = content.find(start_marker)
     if start_index == -1:
-        print(f"Skipping: Marker '{start_marker}' not found in content.")
-        return content
+        logger.warning("REPLACE_SKIP: Marker not found: %s", start_marker)
+        return content, False
 
     # 2. Find END marker (searching strictly after the start marker)
     end_index = content.find(end_marker, start_index)
     if end_index == -1:
-        print(f"Error: Found start for '{func_name}' but missing closing marker.")
-        return content
+        logger.error("REPLACE_ERR: Missing end marker for function '%s'", func_name)
+        return content, False
 
     # 3. Calculate splice positions
     # We want to insert AFTER the start marker line
@@ -115,5 +144,5 @@ def update_string_with_markers(content, replacement_data):
         content[end_index:]
     )
     
-    print(f"Updated code for: {func_name}")
-    return updated_content
+    logger.info("REPLACE_OK: Updated code for %s (new_len=%d).", func_name, len(new_code))
+    return updated_content, True

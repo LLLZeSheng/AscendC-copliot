@@ -263,6 +263,13 @@ def _latest_detection_output(category: str, op_name: str) -> Optional[Dict[str, 
     }
 
 
+def _choose_tiling_file(detail: OpDetail, category: str, op_name: str) -> Path:
+    detected = _latest_detection_output(category, op_name)
+    if detected and detected.get("tiling_file"):
+        return Path(detected["tiling_file"])
+    return _find_tiling_file(detail.abs_path)
+
+
 def _ensure_marked_copy(src: Path, dest_dir: Path) -> Path:
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = dest_dir / src.name
@@ -899,7 +906,7 @@ async def openevolve_start(request: EvolveRequest) -> JSONResponse:
     )
 
     # Resolve target tiling file and initial program
-    tiling_file = _find_tiling_file(detail.abs_path)
+    tiling_file = _choose_tiling_file(detail, category, op_name)
     initial_program = _choose_initial_program(detail, category, op_name)
 
     run_id = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"

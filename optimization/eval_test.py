@@ -1,9 +1,12 @@
 # eval.py
+import logging
 import os
 import traceback
 
 import check_single_test  # must provide check_single.eval(...)
 import replace       # your replace.py (must be importable)
+
+logger = logging.getLogger("eval_operator")
 
 
 def evaluate(
@@ -41,14 +44,22 @@ def evaluate(
             if not os.path.exists(file_name):
                 raise FileNotFoundError(f"target file (file_name) not found: {file_name}")
 
-            print("STEP_START: REPLACE")
+            logger.info("STEP_START: REPLACE")
+            logger.info(
+                "REPLACE_CTX: mode=%s program_path=%s target_file=%s host_key=%s",
+                mode,
+                program_path,
+                file_name,
+                host_key,
+            )
             replaced_code = replace.replace(
                 target_file_path=file_name,
                 file_generated_path=program_path,
             )
-            print("STEP_OK: REPLACE")
+            logger.info("STEP_OK: REPLACE")
 
             if replaced_code is None:
+                logger.warning("REPLACE_FALLBACK: Using program_path content as full file.")
                 with open(program_path, "r", encoding="utf-8") as f:
                     replaced_code = f.read()
 

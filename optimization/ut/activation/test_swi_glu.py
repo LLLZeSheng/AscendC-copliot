@@ -45,7 +45,7 @@ class TestSwiGlu(TestCase):
         self.run_swiglu(shape, dtype, dim)
 
     def test_case(self):
-        self.run_test([8, 4096, 256], torch.float16, dim=-1)
+        self.run_test([1, 1024, 1024], torch.float16, dim=-1)
 
 
 if __name__ == "__main__":

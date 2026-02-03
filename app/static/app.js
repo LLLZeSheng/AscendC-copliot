@@ -435,15 +435,15 @@ async function loadProgramFromCheckpoint(checkpointPath, targetCodeEl) {
 }
 
 async function loadCheckpointProgram(state) {
-  if (!state || state.programLoaded) return;
+  if (!state) return;
   if (!state.checkpointPath) {
     if (state.codeEl) state.codeEl.textContent = "暂无 checkpoint program。";
-    state.programLoaded = true;
     return;
   }
-  state.programLoaded = true;
+  if (state.programLoaded) return;
   if (state.codeEl) state.codeEl.textContent = "加载中...";
-  await loadProgramFromCheckpoint(state.checkpointPath, state.codeEl);
+  const loaded = await loadProgramFromCheckpoint(state.checkpointPath, state.codeEl);
+  state.programLoaded = loaded;
   try {
     const infoText = await fetchFileContent(`${state.checkpointPath}/best_program_info.json`);
     const info = JSON.parse(infoText);
@@ -1378,9 +1378,16 @@ async function runEvolve() {
       const scoreValue = parseCombinedScore(notes);
 
       const state = ensureTimelineEntry(idx, `checkpoint_${idx}`);
+      const prevPath = state.checkpointPath;
       state.variant = variant;
       state.checkpointPath =
         payload.data.path || (lastOutputDir ? `${lastOutputDir}/checkpoints/${variant}` : null);
+      if (state.checkpointPath && state.checkpointPath !== prevPath) {
+        state.programLoaded = false;
+        if (state.detailsEl && state.detailsEl.open) {
+          loadCheckpointProgram(state);
+        }
+      }
       updateDiffOptions(variant, state.checkpointPath);
       state.completed = true;
       if (typeof avgValue === "number") {

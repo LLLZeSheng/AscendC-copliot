@@ -31,6 +31,7 @@ import uuid
 from pathlib import Path
 from typing import Dict, Optional, Union
 import shlex
+import hashlib
 
 
 # ----------------- logging -----------------
@@ -52,6 +53,10 @@ class EvalError(Exception):
 def snake_to_camel(snake_str: str) -> str:
     """Convert snake_case to CamelCase, e.g., 'embedding_bag' -> 'EmbeddingBag'"""
     return "".join(word.capitalize() for word in snake_str.split("_") if word)
+
+
+def _short_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8", errors="ignore")).hexdigest()[:12]
 
 
 
@@ -137,7 +142,18 @@ def _replace_files_in_tmp(
             raise FileNotFoundError(f"Kernel directory not found in tmp copy: {kernel_dir}")
         for fname, content in kernel_files.items():
             target = kernel_dir / fname
-            logger.info(f"Replace kernel file: {target} (len={len(content)} chars)")
+            old_content = target.read_text(encoding="utf-8", errors="ignore") if target.exists() else ""
+            old_hash = _short_hash(old_content) if old_content else "EMPTY"
+            new_hash = _short_hash(content) if content else "EMPTY"
+            logger.info(
+                "Replace kernel file: %s old_len=%d old_sha=%s new_len=%d new_sha=%s changed=%s",
+                target,
+                len(old_content),
+                old_hash,
+                len(content),
+                new_hash,
+                old_hash != new_hash,
+            )
             if not target.exists():
                 raise FileNotFoundError(f"Kernel file '{fname}' not found in tmp copy: {target}")
             target.write_text(content, encoding="utf-8")
@@ -147,7 +163,19 @@ def _replace_files_in_tmp(
             raise FileNotFoundError(f"Host directory not found in tmp copy: {host_dir}")
         for fname, content in host_files.items():
             target = _find_host_file_recursive(host_dir, fname)
-            logger.info(f"Replace host file: {fname} -> {target} (len={len(content)} chars)")
+            old_content = target.read_text(encoding="utf-8", errors="ignore") if target and target.exists() else ""
+            old_hash = _short_hash(old_content) if old_content else "EMPTY"
+            new_hash = _short_hash(content) if content else "EMPTY"
+            logger.info(
+                "Replace host file: %s -> %s old_len=%d old_sha=%s new_len=%d new_sha=%s changed=%s",
+                fname,
+                target,
+                len(old_content),
+                old_hash,
+                len(content),
+                new_hash,
+                old_hash != new_hash,
+            )
             if target is None:
                 raise FileNotFoundError(f"Host file '{fname}' not found in tmp copy under {host_dir} (recursive)")
             target.write_text(content, encoding="utf-8")
