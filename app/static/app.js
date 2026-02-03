@@ -44,7 +44,10 @@ const bestDrawer = document.getElementById("bestDrawer");
 const diffSelectA = document.getElementById("diffSelectA");
 const diffSelectB = document.getElementById("diffSelectB");
 const runDiffBtn = document.getElementById("runDiff");
-const diffOutput = document.getElementById("diffOutput");
+const diffOutputA = document.getElementById("diffOutputA");
+const diffOutputB = document.getElementById("diffOutputB");
+const diffTitleA = document.getElementById("diffTitleA");
+const diffTitleB = document.getElementById("diffTitleB");
 const diffSection = document.getElementById("diffSection");
 const diffPlaceholder = document.getElementById("diffPlaceholder");
 const consoleStage = document.getElementById("consoleStage");
@@ -81,10 +84,14 @@ let inInitialEval = false;
 let inEval = false;
 let evolveLogBuffer = [];
 let evolveLogFlushHandle = null;
+let evolveLogLines = [];
+let initialProgramPath = null;
 // timeline entries are tracked in iterationStates
 let iterationStates = new Map();
 let currentIterKey = null;
 let checkpointOptions = new Map();
+
+const EVOLVE_LOG_MAX_LINES = 3000;
 
 const STAGE_KEYS = ["replace", "build", "install", "run", "profile"];
 const STAGE_LABELS = {
@@ -256,10 +263,12 @@ function createTimelineState(key, label, isInitial = false) {
     checkpointPath: null,
     avgUs: null,
     score: null,
-    logs: [],
+    logs: null,
     stageState: buildStageState(isInitial),
     programLoaded: false,
+    interrupted: false,
     completed: false,
+    programPath: null,
     detailsEl: null,
     summaryEl: null,
     metricsEl: null,
@@ -319,7 +328,7 @@ function ensureTimelineEntry(key, label, isInitial = false) {
   programSection.className = "timeline-section";
   programSection.open = false;
   const programSummary = document.createElement("summary");
-  programSummary.textContent = "修改后的 Program";
+  programSummary.textContent = "本轮最新 Program";
   programSection.appendChild(programSummary);
   const programPre = document.createElement("pre");
   programPre.className = "code-block";
@@ -330,24 +339,11 @@ function ensureTimelineEntry(key, label, isInitial = false) {
   programSection.appendChild(programPre);
   body.appendChild(programSection);
 
-  const logSection = document.createElement("details");
-  logSection.className = "timeline-section";
-  logSection.open = false;
-  const logSummary = document.createElement("summary");
-  logSummary.textContent = "运行日志";
-  logSection.appendChild(logSummary);
-  const logPre = document.createElement("pre");
-  logPre.className = "code-block inline";
-  logPre.textContent = "等待日志...";
-  logSection.appendChild(logPre);
-  body.appendChild(logSection);
-
   details.appendChild(body);
 
   details.addEventListener("toggle", () => {
     if (details.open && state) {
       programSection.open = false;
-      logSection.open = false;
       loadCheckpointProgram(state);
     }
   });
@@ -357,11 +353,11 @@ function ensureTimelineEntry(key, label, isInitial = false) {
   state.detailsEl = details;
   state.summaryEl = summary;
   state.metricsEl = metrics;
-  state.logEl = logPre;
   state.codeEl = programCode;
   state.stageEl = stageBar;
   state.programSection = programSection;
-  state.logSection = logSection;
+  state.logEl = null;
+  state.logSection = null;
 
   return state;
 }
@@ -377,7 +373,7 @@ function updateTimelineMetrics(state) {
 
 function updateTimelineLog(state) {
   if (!state || !state.logEl) return;
-  if (!state.logs.length) {
+  if (!state.logs || !state.logs.length) {
     state.logEl.textContent = "等待日志...";
     return;
   }
@@ -400,7 +396,17 @@ function updateTimelineSummary(state) {
     title.textContent = label;
   }
   if (status) {
-    status.textContent = state.completed || state.checkpointPath ? "已完成" : "运行中...";
+    if (state.interrupted) {
+      status.textContent = "已失败";
+    } else {
+      status.textContent = state.completed || state.checkpointPath ? "已完成" : "运行中...";
+    }
+  }
+  if (state.detailsEl) {
+    const isCompleted = state.completed || state.checkpointPath;
+    state.detailsEl.classList.toggle("pending", !isCompleted && !state.interrupted);
+    state.detailsEl.classList.toggle("failed", state.interrupted);
+    state.detailsEl.classList.toggle("completed", isCompleted && !state.interrupted);
   }
 }
 
@@ -413,7 +419,43 @@ async function fetchFileContent(path) {
   return data.content || "";
 }
 
-async function loadProgramFromCheckpoint(checkpointPath, targetCodeEl) {
+async function loadProgramFromCheckpoint(checkpointPath, targetCodeEl, options = {}) {
+  const result = { loaded: false, metrics: null };
+  const programPath = options.programPath;
+  const fallbackLang = options.fallbackLang || "cpp";
+
+  if (programPath) {
+    try {
+      const raw = await fetchFileContent(programPath);
+      const info = JSON.parse(raw);
+      const code = typeof info.code === "string" ? info.code : "";
+      if (targetCodeEl) {
+        targetCodeEl.textContent = code || "文件为空";
+        const langRaw = String(info.language || "").toLowerCase();
+        let lang = fallbackLang;
+        if (langRaw.includes("python")) lang = "python";
+        if (langRaw.includes("cpp") || langRaw.includes("c++")) lang = "cpp";
+        if (langRaw === "c") lang = "c";
+        targetCodeEl.className = `language-${lang}`;
+        highlightBlock(targetCodeEl);
+      }
+      result.loaded = true;
+      if (info && typeof info.metrics === "object") {
+        result.metrics = info.metrics;
+      }
+      return result;
+    } catch (err) {
+      // fall back to best_program file if parsing failed
+    }
+  }
+
+  if (!checkpointPath) {
+    if (targetCodeEl) {
+      targetCodeEl.textContent = "未找到 program 文件。";
+    }
+    return result;
+  }
+
   const candidates = ["best_program.cpp", "best_program.cc", "best_program.c", "best_program.py"];
   for (const name of candidates) {
     try {
@@ -423,43 +465,60 @@ async function loadProgramFromCheckpoint(checkpointPath, targetCodeEl) {
         targetCodeEl.className = name.endsWith(".py") ? "language-python" : "language-cpp";
         highlightBlock(targetCodeEl);
       }
-      return true;
+      result.loaded = true;
+      return result;
     } catch (err) {
       continue;
     }
   }
   if (targetCodeEl) {
-    targetCodeEl.textContent = "未找到 best_program 文件。";
+    targetCodeEl.textContent = "未找到 program 文件。";
   }
-  return false;
+  return result;
 }
 
 async function loadCheckpointProgram(state) {
   if (!state) return;
-  if (!state.checkpointPath) {
-    if (state.codeEl) state.codeEl.textContent = "暂无 checkpoint program。";
+  if (!state.checkpointPath && !state.programPath) {
+    if (state.codeEl) state.codeEl.textContent = "暂无 program。";
     return;
   }
   if (state.programLoaded) return;
   if (state.codeEl) state.codeEl.textContent = "加载中...";
-  const loaded = await loadProgramFromCheckpoint(state.checkpointPath, state.codeEl);
-  state.programLoaded = loaded;
-  try {
-    const infoText = await fetchFileContent(`${state.checkpointPath}/best_program_info.json`);
-    const info = JSON.parse(infoText);
-    const metrics = info.metrics || {};
-    if (typeof metrics.combined_score === "number") {
-      state.score = metrics.combined_score;
-      if (state.avgUs === null) {
-        state.avgUs = 10.0 / metrics.combined_score;
+  const result = await loadProgramFromCheckpoint(state.checkpointPath, state.codeEl, {
+    programPath: state.programPath,
+    fallbackLang: "cpp",
+  });
+  state.programLoaded = result.loaded;
+  if (!state.programPath && state.checkpointPath) {
+    try {
+      const infoText = await fetchFileContent(`${state.checkpointPath}/best_program_info.json`);
+      const info = JSON.parse(infoText);
+      const metrics = info.metrics || {};
+      if (typeof metrics.combined_score === "number") {
+        state.score = metrics.combined_score;
+        if (state.avgUs === null) {
+          state.avgUs = 10.0 / metrics.combined_score;
+        }
       }
+      if (typeof metrics.avg_us === "number") {
+        state.avgUs = metrics.avg_us;
+      }
+      updateTimelineMetrics(state);
+      updateTimelineSummary(state);
+    } catch (err) {
+      // ignore
     }
-    if (typeof metrics.avg_us === "number") {
-      state.avgUs = metrics.avg_us;
+    return;
+  }
+  if (result.metrics && (state.avgUs === null || state.avgUs === undefined)) {
+    if (typeof result.metrics.avg_us === "number") {
+      state.avgUs = result.metrics.avg_us;
+    } else if (typeof result.metrics.combined_score === "number") {
+      state.avgUs = 10.0 / result.metrics.combined_score;
     }
     updateTimelineMetrics(state);
-  } catch (err) {
-    // ignore
+    updateTimelineSummary(state);
   }
 }
 
@@ -496,28 +555,21 @@ async function loadBestDetails() {
 
 function appendIterLog(state, line) {
   if (!state) return;
-  state.logs.push(line);
-  if (!state.logEl) {
-    updateTimelineLog(state);
-    return;
+  // Per-checkpoint logs are omitted to keep the UI responsive.
+  return;
+}
+
+function appendEvolveLogLines(lines) {
+  if (!evolveLog || !lines || !lines.length) return;
+  for (const line of lines) {
+    if (line === undefined || line === null) continue;
+    evolveLogLines.push(String(line));
   }
-  if (!state.pendingLines) state.pendingLines = [];
-  state.pendingLines.push(line);
-  if (state.flushHandle) return;
-  state.flushHandle = requestAnimationFrame(() => {
-    if (!state.logEl) {
-      state.flushHandle = null;
-      state.pendingLines = [];
-      return;
-    }
-    if (state.logEl.textContent === "等待日志..." || !state.logEl.textContent) {
-      state.logEl.textContent = "";
-    }
-    state.logEl.textContent += `${state.pendingLines.join("\n")}\n`;
-    state.pendingLines = [];
-    state.flushHandle = null;
-    state.logEl.scrollTop = state.logEl.scrollHeight;
-  });
+  if (evolveLogLines.length > EVOLVE_LOG_MAX_LINES) {
+    evolveLogLines = evolveLogLines.slice(-EVOLVE_LOG_MAX_LINES);
+  }
+  evolveLog.textContent = `${evolveLogLines.join("\n")}\n`;
+  evolveLog.scrollTop = evolveLog.scrollHeight;
 }
 
 function extractAvgFromLogs(logs) {
@@ -545,35 +597,97 @@ function updateDiffOptions(variant, checkpointPath) {
   if (diffSelectB) {
     diffSelectB.appendChild(option);
   }
+  updateInitialDiffOption();
   syncDiffVisibility();
 }
 
+function updateInitialDiffOption() {
+  if (!initialProgramPath) return;
+  const key = "initial_program";
+  if (checkpointOptions.has(key)) {
+    checkpointOptions.set(key, initialProgramPath);
+    if (diffSelectA) {
+      const opt = Array.from(diffSelectA.options).find((item) => item.value === key);
+      if (opt) opt.dataset.path = initialProgramPath;
+    }
+    if (diffSelectB) {
+      const opt = Array.from(diffSelectB.options).find((item) => item.value === key);
+      if (opt) opt.dataset.path = initialProgramPath;
+    }
+    return;
+  }
+  checkpointOptions.set(key, initialProgramPath);
+  const option = document.createElement("option");
+  option.value = key;
+  option.textContent = "initial_program";
+  option.dataset.path = initialProgramPath;
+  if (diffSelectA) {
+    diffSelectA.appendChild(option.cloneNode(true));
+  }
+  if (diffSelectB) {
+    diffSelectB.appendChild(option);
+  }
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderDiffLines(target, lines) {
+  if (!target) return;
+  if (!lines || !lines.length) {
+    target.textContent = "No differences.";
+    return;
+  }
+  let lineNo = 1;
+  const html = lines
+    .map((line) => {
+      const type = line.type || "equal";
+      const text = line.text || "";
+      const showNumber = type !== "empty";
+      const number = showNumber ? lineNo++ : "";
+      return `<span class="diff-line diff-${type}"><span class="diff-line-no">${number}</span><span class="diff-line-text">${escapeHtml(text)}</span></span>`;
+    })
+    .join("");
+  target.innerHTML = html;
+}
+
 async function runCheckpointDiff() {
-  if (!diffSelectA || !diffSelectB || !diffOutput) return;
+  if (!diffSelectA || !diffSelectB || !diffOutputA || !diffOutputB) return;
   const optA = diffSelectA.selectedOptions[0];
   const optB = diffSelectB.selectedOptions[0];
   if (!optA || !optB) {
-    diffOutput.textContent = "请选择两个 checkpoint。";
+    diffOutputA.textContent = "请选择两个 checkpoint。";
+    diffOutputB.textContent = "请选择两个 checkpoint。";
     return;
   }
   const pathA = optA.dataset.path;
   const pathB = optB.dataset.path;
   if (!pathA || !pathB) {
-    diffOutput.textContent = "无法读取 checkpoint 路径。";
+    diffOutputA.textContent = "无法读取 checkpoint 路径。";
+    diffOutputB.textContent = "无法读取 checkpoint 路径。";
     return;
   }
-  diffOutput.textContent = "正在生成 diff...";
+  diffOutputA.textContent = "正在生成 diff...";
+  diffOutputB.textContent = "正在生成 diff...";
   const res = await fetch(
     `/api/checkpoint/diff?checkpoint_a=${encodeURIComponent(pathA)}&checkpoint_b=${encodeURIComponent(pathB)}`
   );
   if (!res.ok) {
-    diffOutput.textContent = "diff 生成失败，请查看后端日志。";
+    diffOutputA.textContent = "diff 生成失败，请查看后端日志。";
+    diffOutputB.textContent = "diff 生成失败，请查看后端日志。";
     return;
   }
   const data = await res.json();
-  diffOutput.textContent = data.diff || "No differences.";
-  diffOutput.className = "language-diff";
-  highlightBlock(diffOutput);
+  if (diffTitleA) diffTitleA.textContent = data.file_a || "Program A";
+  if (diffTitleB) diffTitleB.textContent = data.file_b || "Program B";
+  renderDiffLines(diffOutputA, data.left);
+  renderDiffLines(diffOutputB, data.right);
 }
 
 function resetDiffOptions() {
@@ -592,10 +706,19 @@ function resetDiffOptions() {
     opt.textContent = "选择 checkpoint";
     diffSelectB.appendChild(opt);
   }
-  if (diffOutput) {
-    diffOutput.textContent = "等待选择 checkpoint。";
-    diffOutput.className = "language-diff";
+  if (diffOutputA) {
+    diffOutputA.textContent = "等待选择 checkpoint。";
   }
+  if (diffOutputB) {
+    diffOutputB.textContent = "等待选择 checkpoint。";
+  }
+  if (diffTitleA) {
+    diffTitleA.textContent = "Program A";
+  }
+  if (diffTitleB) {
+    diffTitleB.textContent = "Program B";
+  }
+  updateInitialDiffOption();
   syncDiffVisibility();
 }
 
@@ -614,6 +737,7 @@ function resetSelectionState() {
   iterationCounter = 0;
   inInitialEval = false;
   inEval = false;
+  initialProgramPath = null;
   evolveLogBuffer = [];
   evolveLogFlushHandle = null;
   iterationStates = new Map();
@@ -1010,10 +1134,16 @@ async function runDetect() {
 
 function renderWorkspace(workspace) {
   workspaceFiles.innerHTML = "";
+  if (workspace && workspace.initial_program && workspace.initial_program.path) {
+    initialProgramPath = workspace.initial_program.path;
+  } else {
+    initialProgramPath = null;
+  }
+  updateInitialDiffOption();
   const workspaceEntries = [
     { key: "initial_program", label: "Initial Program" },
     { key: "marked_original", label: "Marked Source" },
-    { key: "ut_script", label: "UT Script" },
+    { key: "ut_script", label: "Unit Test" },
   ];
   workspaceEntries.forEach((item) => {
     const info = workspace[item.key];
@@ -1133,7 +1263,9 @@ function setStageLabel(text) {
 }
 
 function syncDiffVisibility() {
-  const showDiff = !evolveRunning && checkpointOptions.size > 0;
+  const checkpointCount = Array.from(checkpointOptions.keys()).filter((key) => key !== "initial_program")
+    .length;
+  const showDiff = !evolveRunning && checkpointCount > 0;
   if (diffSection) diffSection.hidden = !showDiff;
   if (diffPlaceholder) {
     diffPlaceholder.hidden = showDiff;
@@ -1177,6 +1309,7 @@ async function runEvolve() {
   iterationCounter = 0;
   inInitialEval = false;
   inEval = false;
+  let awaitingBeginEval = false;
   iterationStates = new Map();
   currentIterKey = null;
   resetEvolveStages();
@@ -1191,6 +1324,7 @@ async function runEvolve() {
   if (evolveLogNote) evolveLogNote.textContent = "演化任务启动中...";
   evolveLogBuffer = [];
   evolveLogFlushHandle = null;
+  evolveLogLines = [];
 
   const res = await fetch("/api/openevolve/start", {
     method: "POST",
@@ -1237,13 +1371,11 @@ async function runEvolve() {
     if (evalCounter === 1) {
       inInitialEval = true;
       currentIterKey = "initial";
-      setIterLabel("初始评测（不替换）");
+      setIterLabel("初始评测");
       setStageLabel("等待阶段");
       resetEvolveStages();
       setStageSkipped("replace");
       const state = ensureTimelineEntry(currentIterKey, "初始评测", true);
-      state.logs = [];
-      if (state.logEl) state.logEl.textContent = "等待日志...";
       state.detailsEl.classList.add("pending");
       updateTimelineSummary(state);
       applyStageState(evolveStages, state.stageState);
@@ -1256,12 +1388,35 @@ async function runEvolve() {
       resetEvolveStages();
       const label = `checkpoint_${iterationCounter}`;
       const state = ensureTimelineEntry(currentIterKey, label);
-      state.logs = [];
-      if (state.logEl) state.logEl.textContent = "等待日志...";
       state.detailsEl.classList.add("pending");
       updateTimelineSummary(state);
       applyStageState(evolveStages, state.stageState);
     }
+    awaitingBeginEval = false;
+  };
+
+  const finalizeEvalSession = () => {
+    if (currentIterKey === null) return;
+    const state = iterationStates.get(currentIterKey);
+    if (state) {
+      state.completed = true;
+      state.interrupted = true;
+      state.avgUs = 0;
+      if (state.detailsEl) state.detailsEl.classList.remove("pending");
+      if (state.stageState) {
+        STAGE_KEYS.forEach((key) => {
+          if (state.stageState[key] === "pending" || state.stageState[key] === "active") {
+            state.stageState[key] = "skipped";
+          }
+        });
+        if (state.stageEl) applyStageState(state.stageEl, state.stageState);
+      }
+      updateTimelineMetrics(state);
+      updateTimelineSummary(state);
+    }
+    inEval = false;
+    currentIterKey = null;
+    awaitingBeginEval = false;
   };
 
   const eventSource = new EventSource(`/api/openevolve/stream?session_id=${sessionId}`);
@@ -1289,13 +1444,34 @@ async function runEvolve() {
       const line = payload.data?.message || "";
       const isBeginEval = line.includes("BEGIN eval");
       const isEndEval = line.includes("END eval");
+      const isReplaceStart = line.includes("STEP_START: REPLACE");
       const isStepStart = line.includes("STEP_START:");
       const isStepOk = line.includes("STEP_OK:");
+      if (isReplaceStart) {
+        if (inEval && !awaitingBeginEval) {
+          finalizeEvalSession();
+        }
+        if (!inEval) {
+          beginEvalSession();
+          awaitingBeginEval = true;
+        }
+      } else if (isBeginEval) {
+        if (inEval && awaitingBeginEval) {
+          awaitingBeginEval = false;
+        } else {
+          if (inEval) {
+            finalizeEvalSession();
+          }
+          beginEvalSession();
+        }
+      } else if (!inEval && (isStepStart || isStepOk)) {
+        beginEvalSession();
+        awaitingBeginEval = true;
+      }
       if (isBeginEval || isStepStart || isStepOk) {
         if (placeholder.parentElement) {
           placeholder.remove();
         }
-        beginEvalSession();
       }
 
       const state = currentIterKey !== null ? iterationStates.get(currentIterKey) : null;
@@ -1342,18 +1518,13 @@ async function runEvolve() {
         evolveLogBuffer.push(line);
         if (!evolveLogFlushHandle) {
           evolveLogFlushHandle = requestAnimationFrame(() => {
-            if (!evolveLog) {
-              evolveLogBuffer = [];
-              evolveLogFlushHandle = null;
-              return;
-            }
-            if (evolveLog.textContent === "等待日志输出…") {
-              evolveLog.textContent = "";
-            }
-            evolveLog.textContent += `${evolveLogBuffer.join("\n")}\n`;
+            const pending = evolveLogBuffer;
             evolveLogBuffer = [];
             evolveLogFlushHandle = null;
-            evolveLog.scrollTop = evolveLog.scrollHeight;
+            if (!evolveLog) {
+              return;
+            }
+            appendEvolveLogLines(pending);
           });
         }
       }
@@ -1374,15 +1545,23 @@ async function runEvolve() {
       const idx = payload.data.index;
       const variant = payload.data.variant || `checkpoint_${idx}`;
       const avgValue = payload.data.avg_us;
+      const bestAvgValue = payload.data.best_avg_us;
+      const latestScoreValue = payload.data.latest_score;
       const notes = payload.data.notes || "";
       const scoreValue = parseCombinedScore(notes);
 
       const state = ensureTimelineEntry(idx, `checkpoint_${idx}`);
       const prevPath = state.checkpointPath;
+      const prevProgramPath = state.programPath;
       state.variant = variant;
+      state.interrupted = false;
       state.checkpointPath =
         payload.data.path || (lastOutputDir ? `${lastOutputDir}/checkpoints/${variant}` : null);
-      if (state.checkpointPath && state.checkpointPath !== prevPath) {
+      state.programPath = payload.data.latest_program_path || null;
+      if (
+        (state.checkpointPath && state.checkpointPath !== prevPath) ||
+        (state.programPath && state.programPath !== prevProgramPath)
+      ) {
         state.programLoaded = false;
         if (state.detailsEl && state.detailsEl.open) {
           loadCheckpointProgram(state);
@@ -1392,20 +1571,23 @@ async function runEvolve() {
       state.completed = true;
       if (typeof avgValue === "number") {
         state.avgUs = avgValue;
+      } else if (typeof latestScoreValue === "number") {
+        state.avgUs = 10.0 / latestScoreValue;
       } else if (typeof scoreValue === "number") {
         state.avgUs = 10.0 / scoreValue;
       }
-      state.score = typeof scoreValue === "number" ? scoreValue : state.score;
+      state.score = typeof latestScoreValue === "number" ? latestScoreValue : state.score;
       state.detailsEl.classList.remove("pending");
       updateTimelineMetrics(state);
       updateTimelineSummary(state);
 
       let improved = false;
-      if (typeof state.avgUs === "number") {
-        improved = bestAvgUs === null || state.avgUs < bestAvgUs;
+      const bestCandidate = typeof bestAvgValue === "number" ? bestAvgValue : state.avgUs;
+      if (typeof bestCandidate === "number") {
+        improved = bestAvgUs === null || bestCandidate < bestAvgUs;
       }
       if (improved) {
-        bestAvgUs = state.avgUs;
+        bestAvgUs = typeof bestAvgValue === "number" ? bestAvgValue : state.avgUs;
         bestVariant = variant;
         bestCheckpointPath = state.checkpointPath;
         state.detailsEl.classList.add("best");
@@ -1432,6 +1614,16 @@ async function runEvolve() {
         setStatus("演化失败");
         if (bestStatusChip) bestStatusChip.textContent = "演化失败";
         setStageLabel("演化失败");
+        if (currentIterKey !== null) {
+          const state = iterationStates.get(currentIterKey);
+          if (state) {
+            state.completed = true;
+            state.interrupted = true;
+            state.avgUs = 0;
+            updateTimelineMetrics(state);
+            updateTimelineSummary(state);
+          }
+        }
       } else if (!summary.best_variant) {
         evolveSummary.textContent = `未检测到 checkpoint，请查看日志 ${summary.log_file || ""}`;
         setStatus("演化结束");
@@ -1478,6 +1670,16 @@ async function runEvolve() {
   eventSource.onerror = () => {
     evolveRunning = false;
     inEval = false;
+    if (currentIterKey !== null) {
+      const state = iterationStates.get(currentIterKey);
+      if (state) {
+        state.completed = true;
+        state.interrupted = true;
+        state.avgUs = 0;
+        updateTimelineMetrics(state);
+        updateTimelineSummary(state);
+      }
+    }
     currentIterKey = null;
     updateActionState();
     evolveSummary.textContent = "演化连接异常，请查看后端日志。";

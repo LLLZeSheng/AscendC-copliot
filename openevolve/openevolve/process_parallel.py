@@ -260,7 +260,9 @@ def _run_iteration_worker(
         import uuid
 
         child_id = str(uuid.uuid4())
-        child_metrics = asyncio.run(_worker_evaluator.evaluate_program(child_code, child_id))
+        child_metrics = asyncio.run(
+            _worker_evaluator.evaluate_program(child_code, child_id, iteration=iteration)
+        )
 
         # Get artifacts
         artifacts = _worker_evaluator.get_pending_artifacts(child_id)
@@ -523,9 +525,13 @@ class ProcessParallelController:
                     if child_program.metrics.get("combined_score", 0) > 0:
                         self.database.add(child_program, iteration=completed_iteration)
 
-                    # Store artifacts
-                    if result.artifacts:
-                        self.database.store_artifacts(child_program.id, result.artifacts)
+                    # Store artifacts (include LLM response if available)
+                    artifacts = result.artifacts or {}
+                    if result.llm_response:
+                        artifacts = dict(artifacts)
+                        artifacts.setdefault("llm_response", result.llm_response)
+                    if artifacts:
+                        self.database.store_artifacts(child_program.id, artifacts)
                     
                     # Log evolution trace
                     if self.evolution_tracer:

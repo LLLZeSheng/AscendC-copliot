@@ -51,7 +51,7 @@ SSE 事件类型：
 
 ### 2.5 Checkpoint Diff
 `GET /api/checkpoint/diff?checkpoint_a=...&checkpoint_b=...`  
-- 读取两个 checkpoint 下的 `best_program.*`，生成 unified diff。
+- 读取两个 checkpoint 下的 `best_program.*`，返回左右对照的行级差异数据（`file_a/file_b/left/right`）。
 
 ### 2.6 OpenEvolve 演化
 `POST /api/openevolve/start`  
@@ -67,7 +67,7 @@ SSE 事件类型：
 `GET /api/openevolve/stream?session_id=...`  
 SSE 事件类型：
 - `log`：演化日志行
-- `initial_eval`：初始评测提示（无 replace）
+- `initial_eval`：初始评测
 - `iteration`：checkpoint 元信息（index/variant/avg_us/path）
 - `complete`：结束摘要（best_variant/best_avg_us/status/output_dir 等）
 

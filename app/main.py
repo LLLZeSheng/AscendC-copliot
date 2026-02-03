@@ -492,20 +492,25 @@ def _scan_checkpoints(output_dir: Path, seen: set[int]) -> List[Dict[str, Any]]:
             continue
         meta = _load_json(p / "metadata.json") or {}
         best_info = _load_json(p / "best_program_info.json") or {}
-        metrics = best_info.get("metrics") or {}
-        score = metrics.get("combined_score")
-        avg_us = metrics.get("avg_us")
-        if avg_us is None and score:
-            try:
-                avg_us = 10.0 / float(score)
-            except Exception:
-                avg_us = None
+        best_metrics = best_info.get("metrics") or {}
+        best_score = best_metrics.get("combined_score")
+        best_avg_us = _avg_us_from_metrics(best_metrics)
+        iteration_index = meta.get("last_iteration", idx)
+        latest_info = _latest_program_info(p, iteration_index) or {}
+        latest_metrics = latest_info.get("metrics") or {}
+        latest_avg_us = _avg_us_from_metrics(latest_metrics)
+        latest_score = latest_metrics.get("combined_score")
+        avg_us = latest_avg_us if latest_avg_us is not None else best_avg_us
+        note_score = latest_score if latest_score is not None else best_score
         events.append(
             {
-                "index": meta.get("last_iteration", idx),
+                "index": iteration_index,
                 "variant": f"checkpoint_{idx}",
                 "avg_us": round(avg_us, 4) if avg_us is not None else None,
-                "notes": f"combined_score={score}" if score is not None else "no score yet",
+                "best_avg_us": best_avg_us,
+                "latest_score": latest_score,
+                "latest_program_path": latest_info.get("path"),
+                "notes": f"combined_score={note_score}" if note_score is not None else "no score yet",
                 "path": str(p),
             }
         )
@@ -550,9 +555,9 @@ def _has_any_checkpoint(output_dir: Path) -> bool:
     return any(ckpt_dir.glob("checkpoint_*"))
 
 
-def _best_avg_us(ckpt_dir: Path) -> Optional[float]:
-    best_info = _load_json(ckpt_dir / "best_program_info.json") or {}
-    metrics = best_info.get("metrics") or {}
+def _avg_us_from_metrics(metrics: Optional[Dict[str, Any]]) -> Optional[float]:
+    if not metrics:
+        return None
     avg_us = metrics.get("avg_us")
     if avg_us is not None:
         try:
@@ -567,6 +572,59 @@ def _best_avg_us(ckpt_dir: Path) -> Optional[float]:
         return round(avg_us, 4)
     except Exception:
         return None
+
+
+def _best_avg_us(ckpt_dir: Path) -> Optional[float]:
+    best_info = _load_json(ckpt_dir / "best_program_info.json") or {}
+    metrics = best_info.get("metrics") or {}
+    return _avg_us_from_metrics(metrics)
+
+
+def _latest_program_info(ckpt_dir: Path, iteration: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    programs_dir = ckpt_dir / "programs"
+    if not programs_dir.exists():
+        return None
+    latest: Optional[Tuple[Tuple[int, float], Path, Dict[str, Any]]] = None
+    candidates: List[Tuple[Tuple[int, float], Path, Dict[str, Any]]] = []
+    for program_file in programs_dir.glob("*.json"):
+        data = _load_json(program_file)
+        if not isinstance(data, dict):
+            continue
+        if "code" not in data:
+            continue
+        prog_iteration = data.get("iteration_found")
+        try:
+            iteration_key = int(prog_iteration) if prog_iteration is not None else -1
+        except Exception:
+            iteration_key = -1
+        timestamp = data.get("timestamp") or data.get("saved_at")
+        try:
+            timestamp_key = float(timestamp) if timestamp is not None else 0.0
+        except Exception:
+            try:
+                timestamp_key = program_file.stat().st_mtime
+            except Exception:
+                timestamp_key = 0.0
+        key = (iteration_key, timestamp_key)
+        candidates.append((key, program_file, data))
+
+    if not candidates:
+        return None
+
+    if iteration is not None:
+        iter_candidates = [item for item in candidates if item[0][0] == iteration]
+    else:
+        iter_candidates = []
+
+    pool = iter_candidates if iter_candidates else candidates
+    latest = max(pool, key=lambda item: item[0])
+    _, program_file, data = latest
+    return {
+        "path": str(program_file),
+        "metrics": data.get("metrics") if isinstance(data.get("metrics"), dict) else {},
+        "iteration": data.get("iteration_found"),
+        "timestamp": data.get("timestamp") or data.get("saved_at"),
+    }
 
 
 @app.get("/api/operator/detail")
@@ -856,33 +914,69 @@ async def workspace_file(path: str = Query(...), repo: Optional[str] = Query(Non
 
 @app.get("/api/checkpoint/diff")
 async def checkpoint_diff(checkpoint_a: str = Query(...), checkpoint_b: str = Query(...)) -> JSONResponse:
-    def _resolve_ckpt(raw: str) -> Path:
-        resolved = Path(raw).expanduser().resolve()
-        if not _is_under_root(resolved, OPTIM_ROOT):
+    def _resolve_path(raw: str) -> Path:
+        raw_path = Path(raw).expanduser()
+        if raw_path.is_absolute():
+            resolved = raw_path.resolve()
+        else:
+            resolved = (BASE_DIR / raw_path).resolve()
+        allowed_roots = [
+            OPTIM_ROOT.resolve(),
+            OPS_ROOT.resolve(),
+            DETECT_RESULT_ROOT.resolve(),
+            BASE_DIR.resolve(),
+        ]
+        if not any(_is_under_root(resolved, root) for root in allowed_roots):
             raise HTTPException(status_code=403, detail="Path not allowed")
-        if not resolved.exists() or not resolved.is_dir():
-            raise HTTPException(status_code=404, detail="Checkpoint not found")
+        if not resolved.exists():
+            raise HTTPException(status_code=404, detail="Path not found")
         return resolved
 
-    ckpt_a = _resolve_ckpt(checkpoint_a)
-    ckpt_b = _resolve_ckpt(checkpoint_b)
+    path_a = _resolve_path(checkpoint_a)
+    path_b = _resolve_path(checkpoint_b)
 
-    file_a = _find_best_program_file(ckpt_a)
-    file_b = _find_best_program_file(ckpt_b)
+    file_a = _find_best_program_file(path_a) if path_a.is_dir() else path_a
+    file_b = _find_best_program_file(path_b) if path_b.is_dir() else path_b
     if not file_a or not file_b:
-        raise HTTPException(status_code=404, detail="best_program file not found")
+        raise HTTPException(status_code=404, detail="program file not found")
+    if not file_a.is_file() or not file_b.is_file():
+        raise HTTPException(status_code=404, detail="program file not found")
 
     text_a = file_a.read_text(encoding="utf-8", errors="ignore").splitlines()
     text_b = file_b.read_text(encoding="utf-8", errors="ignore").splitlines()
-    diff_lines = difflib.unified_diff(
-        text_a,
-        text_b,
-        fromfile=str(file_a),
-        tofile=str(file_b),
-        lineterm="",
+
+    matcher = difflib.SequenceMatcher(a=text_a, b=text_b)
+    left_lines: List[Dict[str, Any]] = []
+    right_lines: List[Dict[str, Any]] = []
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            for a_line, b_line in zip(text_a[i1:i2], text_b[j1:j2]):
+                left_lines.append({"text": a_line, "type": "equal"})
+                right_lines.append({"text": b_line, "type": "equal"})
+        elif tag == "delete":
+            for a_line in text_a[i1:i2]:
+                left_lines.append({"text": a_line, "type": "remove"})
+                right_lines.append({"text": "", "type": "empty"})
+        elif tag == "insert":
+            for b_line in text_b[j1:j2]:
+                left_lines.append({"text": "", "type": "empty"})
+                right_lines.append({"text": b_line, "type": "add"})
+        elif tag == "replace":
+            span = max(i2 - i1, j2 - j1)
+            for offset in range(span):
+                a_line = text_a[i1 + offset] if (i1 + offset) < i2 else ""
+                b_line = text_b[j1 + offset] if (j1 + offset) < j2 else ""
+                left_lines.append({"text": a_line, "type": "remove" if a_line else "empty"})
+                right_lines.append({"text": b_line, "type": "add" if b_line else "empty"})
+
+    return JSONResponse(
+        {
+            "file_a": str(file_a),
+            "file_b": str(file_b),
+            "left": left_lines,
+            "right": right_lines,
+        }
     )
-    diff_text = "\n".join(diff_lines) or "No differences."
-    return JSONResponse({"diff": diff_text})
 
 
 @app.post("/api/openevolve/start")

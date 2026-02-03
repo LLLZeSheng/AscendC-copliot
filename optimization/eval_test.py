@@ -4,7 +4,8 @@ import os
 import traceback
 
 import check_single_test  # must provide check_single.eval(...)
-import replace       # your replace.py (must be importable)
+import replace  # your replace.py (must be importable)
+from openevolve.evaluation_result import EvaluationResult
 
 logger = logging.getLogger("eval_operator")
 
@@ -16,6 +17,7 @@ def evaluate(
     mode: str,
     file_name: str,          # this is a PATH
     test_file_path: str,
+    iteration: int = None,
 ):
     """
     Returns a dict:
@@ -72,13 +74,21 @@ def evaluate(
             },
             kernel_files={},
             python_code_path=test_file_path,
+            iteration=iteration,
         )
 
         duration = float(duration)
-        if duration <= 0:
-            return {"combined_score": 0, "avg_us": 0}
+        metrics = {"combined_score": 0, "avg_us": 0}
+        if duration > 0:
+            metrics = {"combined_score": 10.0 / duration, "avg_us": duration}
 
-        return {"combined_score": 10.0 / duration, "avg_us": duration}
+        artifacts = {
+            "replaced_file": replaced_code,
+            "replaced_filename": host_key,
+            "target_file_path": file_name,
+        }
+
+        return EvaluationResult(metrics=metrics, artifacts=artifacts)
 
     except Exception:
         print("[EVAL ERROR] evaluate() failed:")

@@ -107,12 +107,13 @@ def _verify_files_exist(
             raise FileNotFoundError(f"Host file '{fname}' not found under {host_dir} (recursive)")
 
 
-def _copy_base_to_tmp(base_root: Path) -> Path:
+def _copy_base_to_tmp(base_root: Path, iteration: Optional[int] = None) -> Path:
     if not base_root.exists() or not base_root.is_dir():
         raise FileNotFoundError(f"Base ops-nn root does not exist: {base_root}")
 
     TMP_PARENT.mkdir(parents=True, exist_ok=True)
-    unique_name = f"ops_nn_{uuid.uuid4().hex}"
+    suffix = f"_ckpt{iteration}" if iteration is not None else ""
+    unique_name = f"ops_nn_{uuid.uuid4().hex}{suffix}"
     tmp_root = TMP_PARENT / unique_name
     tmp_root.mkdir(parents=True, exist_ok=True)
 
@@ -427,6 +428,7 @@ def eval(
     host_files: Dict[str, str],
     python_code_path: Union[str, Path],
     timeout: Optional[int] = None,
+    iteration: Optional[int] = None,
 ) -> float:
     if timeout is None:
         timeout = 300
@@ -440,6 +442,7 @@ def eval(
     logger.info(f"TMP_PARENT:       {TMP_PARENT}")
     logger.info(f"MSPROF_BIN:       {MSPROF_BIN}")
     logger.info(f"python_code_path: {python_code_path}")
+    logger.info(f"iteration: {iteration}")
     logger.info(f"kernel_files: {list(kernel_files.keys())}")
     logger.info(f"host_files:   {list(host_files.keys())}")
 
@@ -448,7 +451,7 @@ def eval(
     _verify_files_exist(base_op_dir, kernel_files, host_files)
 
     # 2) copy to tmp
-    tmp_ops_root = _copy_base_to_tmp(BASE_OPS_NN_ROOT)
+    tmp_ops_root = _copy_base_to_tmp(BASE_OPS_NN_ROOT, iteration=iteration)
     logger.info(f"TMP ops root created: {tmp_ops_root}")
 
     # 3) replace selected files

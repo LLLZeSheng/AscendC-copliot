@@ -143,6 +143,7 @@ class Evaluator:
         self,
         program_code: str,
         program_id: str = "",
+        iteration: Optional[int] = None,
     ) -> Dict[str, float]:
         """
         Evaluate a program and return scores
@@ -172,10 +173,10 @@ class Evaluator:
                 # Run evaluation
                 if self.config.cascade_evaluation:
                     # Run cascade evaluation
-                    result = await self._cascade_evaluate(temp_file_path)
+                    result = await self._cascade_evaluate(temp_file_path, iteration=iteration)
                 else:
                     # Run direct evaluation
-                    result = await self._direct_evaluate(temp_file_path)
+                    result = await self._direct_evaluate(temp_file_path, iteration=iteration)
 
                 # Process the result based on type
                 eval_result = self._process_evaluation_result(result)
@@ -339,7 +340,7 @@ class Evaluator:
         return self._pending_artifacts.pop(program_id, None)
 
     async def _direct_evaluate(
-        self, program_path: str
+        self, program_path: str, iteration: Optional[int] = None
     ) -> Union[Dict[str, float], EvaluationResult]:
         """
         Directly evaluate a program using the evaluation function with timeout
@@ -362,7 +363,17 @@ class Evaluator:
             print("operator_category: ", self.operator_category)
             print("mode: ", self.mode)
             print("OP file_name: ", self.file_name)
-            return await loop.run_in_executor(None, self.evaluate_function, program_path, self.operator_name, self.operator_category, self.mode, self.file_name, self.test_file_path)
+            return await loop.run_in_executor(
+                None,
+                self.evaluate_function,
+                program_path,
+                self.operator_name,
+                self.operator_category,
+                self.mode,
+                self.file_name,
+                self.test_file_path,
+                iteration,
+            )
 
         # Run the evaluation with timeout - let exceptions bubble up for retry handling
         result = await asyncio.wait_for(run_evaluation(), timeout=self.config.timeout)
@@ -372,7 +383,7 @@ class Evaluator:
         return result
 
     async def _cascade_evaluate(
-        self, program_path: str
+        self, program_path: str, iteration: Optional[int] = None
     ) -> Union[Dict[str, float], EvaluationResult]:
         """
         Run cascade evaluation with increasingly challenging test cases
@@ -393,14 +404,14 @@ class Evaluator:
 
             spec = importlib.util.spec_from_file_location("evaluation_module", self.evaluation_file)
             if spec is None or spec.loader is None:
-                return await self._direct_evaluate(program_path)
+                return await self._direct_evaluate(program_path, iteration=iteration)
 
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
 
             # Check if cascade functions exist
             if not hasattr(module, "evaluate_stage1"):
-                return await self._direct_evaluate(program_path)
+                return await self._direct_evaluate(program_path, iteration=iteration)
 
             # Run first stage with timeout
             try:

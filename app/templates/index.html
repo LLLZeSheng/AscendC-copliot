@@ -355,7 +355,7 @@
           <div class="checkpoint-diff-header">
             <div>
               <h3>Checkpoint Diff</h3>
-              <div class="muted tiny">对比不同 checkpoint 的 best_program 输出</div>
+              <div class="muted tiny">对比 checkpoint / initial program 的 best_program 输出</div>
             </div>
           </div>
           <div class="note" id="diffPlaceholder">迭代结束后可查看 checkpoint diff。</div>
@@ -371,7 +371,16 @@
               </div>
               <button class="btn" id="runDiff">查看 Diff</button>
             </div>
-            <pre class="code-block"><code id="diffOutput" class="language-diff">等待选择 checkpoint。</code></pre>
+            <div class="diff-view">
+              <div class="diff-column">
+                <div class="diff-title" id="diffTitleA">Program A</div>
+                <pre class="code-block diff-code" id="diffOutputA">等待选择 checkpoint。</pre>
+              </div>
+              <div class="diff-column">
+                <div class="diff-title" id="diffTitleB">Program B</div>
+                <pre class="code-block diff-code" id="diffOutputB">等待选择 checkpoint。</pre>
+              </div>
+            </div>
           </div>
         </div>
       </section>

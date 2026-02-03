@@ -3,6 +3,7 @@ Main controller for OpenEvolve
 """
 
 import asyncio
+import json
 import logging
 import os
 import signal
@@ -283,7 +284,7 @@ class OpenEvolve:
 
             # Evaluate the initial program
             initial_metrics = await self.evaluator.evaluate_program(
-                self.initial_program_code, initial_program_id
+                self.initial_program_code, initial_program_id, iteration=start_iteration
             )
 
             initial_program = Program(
@@ -510,7 +511,91 @@ class OpenEvolve:
                 f"{format_metrics_safe(best_program.metrics)}"
             )
 
+        self._write_iteration_files(checkpoint_path, iteration)
+
         logger.info(f"Saved checkpoint at iteration {iteration} to {checkpoint_path}")
+
+    def _write_iteration_files(self, checkpoint_path: str, iteration: int) -> None:
+        """Persist per-iteration artifacts into the checkpoint directory."""
+        if not self.database or not self.database.programs:
+            return
+
+        programs = [
+            program
+            for program in self.database.programs.values()
+            if program.iteration_found == iteration
+        ]
+        if not programs:
+            return
+
+        base_dir = os.path.join(checkpoint_path, "iteration_files")
+        os.makedirs(base_dir, exist_ok=True)
+
+        for program in programs:
+            program_dir = os.path.join(base_dir, program.id)
+            os.makedirs(program_dir, exist_ok=True)
+
+            modified_path = os.path.join(program_dir, f"modified_program{self.file_extension}")
+            try:
+                with open(modified_path, "w", encoding="utf-8") as f:
+                    f.write(program.code or "")
+            except Exception as exc:
+                logger.warning("Failed to write modified program for %s: %s", program.id, exc)
+
+            artifacts = self.database.get_artifacts(program.id)
+            llm_response = artifacts.get("llm_response")
+            if not llm_response:
+                prompts = (self.database.prompts_by_program or {}).get(program.id, {})
+                for prompt_data in prompts.values():
+                    responses = prompt_data.get("responses") if isinstance(prompt_data, dict) else None
+                    if responses:
+                        llm_response = responses[-1]
+                        break
+
+            if llm_response:
+                llm_path = os.path.join(program_dir, "llm_response.txt")
+                try:
+                    with open(llm_path, "w", encoding="utf-8") as f:
+                        f.write(llm_response)
+                except Exception as exc:
+                    logger.warning("Failed to write llm response for %s: %s", program.id, exc)
+
+            replaced_code = artifacts.get("replaced_file") or artifacts.get("replaced_code")
+            if replaced_code is not None:
+                target_name = artifacts.get("replaced_filename")
+                if not target_name and self.file_name:
+                    try:
+                        target_name = Path(self.file_name).name
+                    except Exception:
+                        target_name = None
+                if not target_name:
+                    target_name = f"replaced{self.file_extension}"
+                replaced_path = os.path.join(program_dir, f"replaced_{target_name}")
+                try:
+                    with open(replaced_path, "w", encoding="utf-8") as f:
+                        f.write(replaced_code)
+                except Exception as exc:
+                    logger.warning("Failed to write replaced file for %s: %s", program.id, exc)
+
+            extra_artifacts = {
+                key: value
+                for key, value in artifacts.items()
+                if key
+                not in {
+                    "llm_response",
+                    "replaced_file",
+                    "replaced_code",
+                    "replaced_filename",
+                    "target_file_path",
+                }
+            }
+            if extra_artifacts:
+                manifest_path = os.path.join(program_dir, "artifacts.json")
+                try:
+                    with open(manifest_path, "w", encoding="utf-8") as f:
+                        json.dump(extra_artifacts, f, ensure_ascii=True, indent=2, default=str)
+                except Exception as exc:
+                    logger.warning("Failed to write artifact manifest for %s: %s", program.id, exc)
 
     def _load_checkpoint(self, checkpoint_path: str) -> None:
         """Load state from a checkpoint directory"""
