@@ -877,6 +877,32 @@ body {
   display: block;
 }
 
+.code-block code.code-lines,
+.markdown pre code.code-lines {
+  display: block;
+  counter-reset: line;
+}
+
+.code-block code.code-lines .code-line,
+.markdown pre code.code-lines .code-line {
+  display: block;
+  position: relative;
+  padding-left: 48px;
+  white-space: pre;
+}
+
+.code-block code.code-lines .code-line::before,
+.markdown pre code.code-lines .code-line::before {
+  counter-increment: line;
+  content: counter(line);
+  position: absolute;
+  left: 0;
+  width: 40px;
+  text-align: right;
+  color: rgba(204, 214, 229, 0.5);
+  user-select: none;
+}
+
 .code-block code.hljs,
 .markdown pre code.hljs {
   background: transparent;

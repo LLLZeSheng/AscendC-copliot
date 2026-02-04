@@ -163,6 +163,7 @@ function resetBestSummary() {
   if (bestProgramCode) {
     bestProgramCode.textContent = "等待最佳版本输出…";
     bestProgramCode.className = "language-cpp";
+    highlightBlock(bestProgramCode);
   }
   if (bestDrawer) bestDrawer.open = false;
 }
@@ -172,6 +173,10 @@ function formatMetric(value, digits = 4) {
     return "-";
   }
   return value.toFixed(digits);
+}
+
+function isPositiveNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
 function extractCheckpointLabel(variant) {
@@ -532,10 +537,10 @@ async function loadBestDetails() {
     const metrics = info.metrics || {};
     const combined = metrics.combined_score;
     const avgUs = metrics.avg_us;
-    if (typeof avgUs === "number") {
+    if (isPositiveNumber(avgUs)) {
       bestAvgUs = avgUs;
       updateBestSummary();
-    } else if (typeof combined === "number") {
+    } else if (isPositiveNumber(combined)) {
       bestAvgUs = 10.0 / combined;
       updateBestSummary();
     }
@@ -543,7 +548,7 @@ async function loadBestDetails() {
       const pieces = [];
       if (bestVariant) pieces.push(`checkpoint=${bestVariant}`);
       if (info.id) pieces.push(`id=${info.id}`);
-      const avgDisplay = typeof avgUs === "number" ? avgUs : bestAvgUs;
+      const avgDisplay = isPositiveNumber(avgUs) ? avgUs : bestAvgUs;
       if (typeof avgDisplay === "number") pieces.push(`avg_us=${formatMetric(avgDisplay)}`);
       if (info.iteration !== undefined) pieces.push(`iteration=${info.iteration}`);
       bestProgramMeta.textContent = pieces.join(" · ") || "最佳 program 信息已更新。";
@@ -842,11 +847,37 @@ function syncShapeState() {
   updateActionState();
 }
 
+function stripLineNumbers(codeEl) {
+  if (!codeEl) return;
+  if (!codeEl.classList.contains("code-lines") && !codeEl.querySelector(".code-line")) return;
+  const text = codeEl.textContent || "";
+  codeEl.classList.remove("code-lines");
+  codeEl.innerHTML = "";
+  codeEl.textContent = text;
+}
+
+function applyLineNumbers(codeEl) {
+  if (!codeEl) return;
+  const html = codeEl.innerHTML || "";
+  const lines = html.split(/\n/);
+  const wrapped = lines
+    .map((line) => `<span class="code-line">${line === "" ? "&nbsp;" : line}</span>`)
+    .join("");
+  codeEl.innerHTML = wrapped;
+  codeEl.classList.add("code-lines");
+}
+
 function highlightBlock(codeEl) {
   if (!codeEl) return;
+  stripLineNumbers(codeEl);
+  if (codeEl.dataset && codeEl.dataset.highlighted) {
+    delete codeEl.dataset.highlighted;
+  }
+  codeEl.classList.remove("hljs");
   if (window.hljs) {
     window.hljs.highlightElement(codeEl);
   }
+  applyLineNumbers(codeEl);
 }
 
 function getCodeLanguage(path, fallback) {
@@ -1576,18 +1607,21 @@ async function runEvolve() {
       } else if (typeof scoreValue === "number") {
         state.avgUs = 10.0 / scoreValue;
       }
+      if (!isPositiveNumber(state.avgUs) && isPositiveNumber(bestAvgValue)) {
+        state.avgUs = bestAvgValue;
+      }
       state.score = typeof latestScoreValue === "number" ? latestScoreValue : state.score;
       state.detailsEl.classList.remove("pending");
       updateTimelineMetrics(state);
       updateTimelineSummary(state);
 
       let improved = false;
-      const bestCandidate = typeof bestAvgValue === "number" ? bestAvgValue : state.avgUs;
-      if (typeof bestCandidate === "number") {
-        improved = bestAvgUs === null || bestCandidate < bestAvgUs;
+      const bestCandidate = isPositiveNumber(state.avgUs) ? state.avgUs : bestAvgValue;
+      if (isPositiveNumber(bestCandidate)) {
+        improved = !isPositiveNumber(bestAvgUs) || bestCandidate < bestAvgUs;
       }
       if (improved) {
-        bestAvgUs = typeof bestAvgValue === "number" ? bestAvgValue : state.avgUs;
+        bestAvgUs = isPositiveNumber(state.avgUs) ? state.avgUs : bestAvgValue;
         bestVariant = variant;
         bestCheckpointPath = state.checkpointPath;
         state.detailsEl.classList.add("best");
@@ -1631,15 +1665,15 @@ async function runEvolve() {
         setStageLabel("演化结束");
       } else {
         bestVariant = summary.best_variant;
-        if (typeof summary.best_avg_us === "number") {
+        if (isPositiveNumber(summary.best_avg_us)) {
           bestAvgUs = summary.best_avg_us;
         }
         bestCheckpointPath =
           lastOutputDir && summary.best_variant ? `${lastOutputDir}/checkpoints/${summary.best_variant}` : bestCheckpointPath;
         updateBestSummary();
         loadBestDetails();
-        const avgValue = summary.best_avg_us ?? bestAvgUs;
-        const avgText = typeof avgValue === "number" ? formatMetric(avgValue) : "--";
+        const avgValue = isPositiveNumber(summary.best_avg_us) ? summary.best_avg_us : bestAvgUs;
+        const avgText = isPositiveNumber(avgValue) ? formatMetric(avgValue) : "--";
         evolveSummary.textContent = `最佳版本 ${summary.best_variant} · Avg ${avgText} us`;
         setStatus("演化完成");
         setStageLabel("演化完成");
@@ -1798,9 +1832,7 @@ runEvolveBtn.addEventListener("click", runEvolve);
 downloadPackageBtn.addEventListener("click", downloadPackage);
 if (runDiffBtn) runDiffBtn.addEventListener("click", runCheckpointDiff);
 
-if (window.hljs) {
-  window.hljs.highlightAll();
-}
+document.querySelectorAll("pre code").forEach((block) => highlightBlock(block));
 
 fetchRepos();
 updateActionState();

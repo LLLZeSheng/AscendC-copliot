@@ -580,6 +580,40 @@ def _best_avg_us(ckpt_dir: Path) -> Optional[float]:
     return _avg_us_from_metrics(metrics)
 
 
+def _checkpoint_avg_us(ckpt_dir: Path) -> Optional[float]:
+    meta = _load_json(ckpt_dir / "metadata.json") or {}
+    iteration_index = meta.get("last_iteration")
+    try:
+        iteration_index = int(iteration_index) if iteration_index is not None else None
+    except Exception:
+        iteration_index = None
+
+    latest_info = _latest_program_info(ckpt_dir, iteration_index) or {}
+    latest_metrics = latest_info.get("metrics") or {}
+    latest_avg_us = _avg_us_from_metrics(latest_metrics)
+    if latest_avg_us is not None:
+        return latest_avg_us
+    return _best_avg_us(ckpt_dir)
+
+
+def _best_checkpoint_by_avg_us(output_dir: Path) -> Tuple[Optional[Path], Optional[float], Optional[str]]:
+    ckpt_dir = output_dir / "checkpoints"
+    if not ckpt_dir.exists():
+        return None, None, None
+
+    best_path: Optional[Path] = None
+    best_avg: Optional[float] = None
+    best_variant: Optional[str] = None
+    for ckpt in sorted(ckpt_dir.glob("checkpoint_*"), key=lambda p: p.name):
+        avg_us = _checkpoint_avg_us(ckpt)
+        if avg_us is None or avg_us <= 0:
+            continue
+        if best_avg is None or avg_us < best_avg:
+            best_avg = avg_us
+            best_path = ckpt
+            best_variant = ckpt.name
+    return best_path, best_avg, best_variant
+
 def _latest_program_info(ckpt_dir: Path, iteration: Optional[int] = None) -> Optional[Dict[str, Any]]:
     programs_dir = ckpt_dir / "programs"
     if not programs_dir.exists():
@@ -1140,10 +1174,9 @@ async def openevolve_stream(session_id: str = Query(...)) -> StreamingResponse:
                         yield f"data: {json.dumps({'type': 'log', 'data': {'message': line}}, ensure_ascii=False)}\n\n"
                 for evt in _scan_checkpoints(output_dir, seen):
                     yield f"data: {json.dumps({'type': 'iteration', 'data': evt})}\n\n"
-                best_ckpt = _latest_checkpoint(output_dir)
-                best_avg_us = _best_avg_us(best_ckpt) if best_ckpt else None
+                best_ckpt, best_avg_us, best_variant = _best_checkpoint_by_avg_us(output_dir)
                 summary = {
-                    "best_variant": best_ckpt.name if best_ckpt else None,
+                    "best_variant": best_variant,
                     "best_avg_us": best_avg_us,
                     "best_latency_ms": round(best_avg_us / 1000.0, 4) if best_avg_us is not None else None,
                     "total_iterations": len(seen),
